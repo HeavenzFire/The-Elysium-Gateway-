@@ -1,5 +1,6 @@
 {
   "name": "The Elysium Gateway",
   "description": "The Symposium of Great Minds. A complex, multi-layered interface to the collective wisdom of history's greatest thinkers and ancient deities.",
-  "requestFramePermissions": ["microphone"]
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
