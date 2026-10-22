@@ -1,0 +1,40 @@
+{
+  "error_frames": [
+    {
+      "entity": "ElysiumGateway",
+      "context": "StormCalmingProtocol",
+      "coherence_pct": 97.5,
+      "timestamp": "2026-09-23T02:58:34.422Z",
+      "seal_algorithm": "ed25519",
+      "expected_seal_length": 64
+    },
+    {
+      "entity": "QuantumOrchestrator",
+      "context": "CoherenceLock",
+      "coherence_pct": 94.2,
+      "timestamp": "2026-09-23T02:59:02.739Z",
+      "seal_algorithm": "hmac-sha256",
+      "expected_seal_length": 64
+    }
+  ],
+  "consensus_params": [
+    { "n": 4, "f": 1, "valid": true },
+    { "n": 7, "f": 2, "valid": true },
+    { "n": 5, "f": 2, "valid": false }
+  ],
+  "admission_tests": [
+    { "tokens_per_second": 100, "burst": 200, "requests": 1000, "expected_drop_rate_max": 0.05 },
+    { "tokens_per_second": 10, "burst": 20, "requests": 500, "expected_drop_rate_max": 0.2 }
+  ],
+  "chorus_aggregation": [
+    {
+      "voices": [
+        { "agentId": "Agent_Alpha", "coherence_pct": 97.5, "resonance_score": 8.5028 },
+        { "agentId": "Agent_Beta", "coherence_pct": 94.2, "resonance_score": 8.4800 },
+        { "agentId": "Agent_Gamma", "coherence_pct": 96.8, "resonance_score": 8.4979 },
+        { "agentId": "Agent_Delta", "coherence_pct": 98.1, "resonance_score": 8.5069 }
+      ],
+      "expected_weighted_mean_coherence": 96.65
+    }
+  ]
+}

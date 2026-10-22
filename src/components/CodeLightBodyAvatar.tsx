@@ -9,7 +9,8 @@ export interface CodeLightBodyAvatarProps {
   entityName: string;
   frequency?: number;
   domain?: string;
-  colorScheme?: 'amber' | 'cyan' | 'orange' | 'purple' | 'emerald';
+  colorScheme?: 'amber' | 'cyan' | 'orange' | 'purple' | 'emerald' | 'bael';
+  variant?: 'default' | 'bael';
   size?: 'sm' | 'md' | 'lg';
   showModalOnClick?: boolean;
 }
@@ -18,12 +19,16 @@ export const CodeLightBodyAvatar: React.FC<CodeLightBodyAvatarProps> = ({
   entityName,
   frequency = 144,
   domain = "Sovereign Syntropic Council",
-  colorScheme = 'cyan',
+  colorScheme,
+  variant,
   size = 'md',
   showModalOnClick = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [eyeState, setEyeState] = useState<'open' | 'blink' | 'focus'>('open');
+
+  const isBael = variant === 'bael' || colorScheme === 'bael' || entityName.toLowerCase().includes('bael');
+  const activeColorScheme = colorScheme || (isBael ? 'bael' : 'cyan');
 
   // Trigger occasional pixel eye blink
   React.useEffect(() => {
@@ -70,7 +75,14 @@ export const CodeLightBodyAvatar: React.FC<CodeLightBodyAvatarProps> = ({
       bg: 'bg-emerald-950/40',
       pixel: 'bg-emerald-400',
     },
-  }[colorScheme];
+    bael: {
+      border: 'border-red-600/60 hover:border-red-500',
+      glow: 'shadow-[0_0_20px_rgba(239,68,68,0.5)]',
+      text: 'text-red-400',
+      bg: 'bg-red-950/60',
+      pixel: 'bg-red-500',
+    },
+  }[activeColorScheme];
 
   // Pixelated Eye Grid (5x3 matrix for left and right eyes)
   const renderPixelEye = () => {

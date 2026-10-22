@@ -137,8 +137,9 @@ export function ResonanceGauge({ resonanceFreq, setResonanceFreq, isActive, outp
               cy={75 - 60 * Math.cos((angle432 * Math.PI) / 180)}
               r="4"
               className="fill-emerald-400 stroke-black stroke-2 shadow-lg"
-              title="432Hz Baseline"
-            />
+            >
+              <title>432Hz Baseline</title>
+            </circle>
             
             {/* 963 Hz Baseline Tick Marker */}
             <circle
@@ -146,8 +147,9 @@ export function ResonanceGauge({ resonanceFreq, setResonanceFreq, isActive, outp
               cy={75 - 60 * Math.cos((angle963 * Math.PI) / 180)}
               r="4"
               className="fill-[#ff4e00] stroke-black stroke-2 shadow-lg"
-              title="963Hz Baseline"
-            />
+            >
+              <title>963Hz Baseline</title>
+            </circle>
 
             {/* Needle */}
             <g transform={`rotate(${currentAngle} 75 75)`} className="transition-transform duration-300">

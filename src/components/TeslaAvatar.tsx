@@ -32,6 +32,8 @@ const TeslaAvatar: React.FC<TeslaAvatarProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const paramsRef = useRef({ inputVolume, outputVolume, foldProgress, resonanceFreq, gateCount });
+  paramsRef.current = { inputVolume, outputVolume, foldProgress, resonanceFreq, gateCount };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -146,7 +148,8 @@ const TeslaAvatar: React.FC<TeslaAvatarProps> = ({
       time += 0.016;
       angleY += 0.01;
 
-      const totalVolume = inputVolume + outputVolume;
+      const { inputVolume: inVol, outputVolume: outVol, foldProgress, resonanceFreq, gateCount } = paramsRef.current;
+      const totalVolume = inVol + outVol;
       const distance = 900;
       const fov = 700;
 
@@ -364,7 +367,7 @@ const TeslaAvatar: React.FC<TeslaAvatarProps> = ({
         } catch (e) {}
       }
     };
-  }, [isActive, inputVolume, outputVolume, foldProgress, resonanceFreq, gateCount, entityId, isSealActive]);
+  }, [isActive, entityId, isSealActive]);
 
   return <div ref={containerRef} className="fixed inset-0 pointer-events-none z-0 overflow-hidden" />;
 };

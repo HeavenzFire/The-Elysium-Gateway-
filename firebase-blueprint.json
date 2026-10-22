@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Authenticated user profile in the Elysium Council",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "email", "displayName", "createdAt"]
+    },
+    "AgentTask": {
+      "title": "Agent Task",
+      "description": "Autonomous task executed by Council entities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "directive": { "type": "string" },
+        "assignedEntityId": { "type": "string" },
+        "status": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "directive", "assignedEntityId", "status", "authorUid", "createdAt"]
+    },
+    "ResearchSession": {
+      "title": "Research Session",
+      "description": "Council lab inquiry and discovery session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "activeEntityId": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "activeEntityId", "authorUid", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document indexed by Firebase Auth UID"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "AgentTask",
+      "description": "Autonomous mission records dispatched by user"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": "ResearchSession",
+      "description": "Saved council sessions and dialogue archives"
+    }
+  }
+}

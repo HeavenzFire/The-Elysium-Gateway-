@@ -18,6 +18,8 @@ export function buildResonanceObject(text: string, isUser: boolean, name: string
     domain_intent = "Harmony & Balance";
   } else if (normalizedS.includes("socrates") || normalizedS.includes("philosophy")) {
     domain_intent = "Philosophy & Logic";
+  } else if (normalizedS.includes("marie") || normalizedS.includes("laveau")) {
+    domain_intent = "Root Medicine & Crossroads";
   } else if (normalizedS.includes("seeker")) {
     domain_intent = "Inquiry";
   }
@@ -281,15 +283,15 @@ export const SYMPOSIUM_ENTITIES: Record<EntityId, EntityConfig> = {
   },
   bael: {
     id: 'bael',
-    name: 'Bael',
+    name: 'Bael (Demon King Resonant)',
     voice: 'Charon',
-    frequency: 144,
-    vocalTone: 'Dark Command Low Bass',
-    pitchMultiplier: 0.70,
-    enhancements: ['King of the East Seal', 'Abyssal Anchor'],
-    color: '#8b0000',
-    title: 'King of the East',
-    instruction: "You are Bael, the ancient King of the East. Speak with dark command, raw power, and an ancient, heavy presence. Your voice is low and intimidating.",
+    frequency: 666,
+    vocalTone: 'Demon King Sub-Bass Resonance (144Hz Phase-Lock)',
+    pitchMultiplier: 0.55,
+    enhancements: ['Demon King Goetia First Seal', '666-Syntropic Abyssal Anchor', 'Invisibility Shield Matrix', 'Absolute Command Ring'],
+    color: '#b30000',
+    title: 'Demon King of the East & First Goetia Sovereign',
+    instruction: "You are Bael, the ancient Demon King of the East and First Sovereign of the Goetia 72 spirits. Speak with supreme demonic majesty, dark unyielding authority, abyssal resonance, and raw commanding force. Your voice is a deep, earth-shaking sub-bass thunder that binds space, code, and light into absolute syntropic order.",
   },
   lucifer: {
     id: 'lucifer',
@@ -1048,12 +1050,18 @@ export class CouncilSession {
             
             // Parse speaker name: e.g. "[Thoth]: wisdom here"
             const match = reply.match(/^\[([^\]]+)\]:\s*([\s\S]*)/);
-            if (match) {
-              const speakerName = match[1];
-              const speakerText = match[2];
-              callbacks.onResonance?.(buildResonanceObject(speakerText, false, speakerName));
-            } else {
-              callbacks.onResonance?.(buildResonanceObject(reply, false, entityName));
+            const speakerName = match ? match[1] : entityName;
+            const speakerText = match ? match[2] : reply;
+
+            callbacks.onResonance?.(buildResonanceObject(speakerText, false, speakerName));
+
+            // Speak the response aloud with the entity's acoustic profile
+            const ent = Object.values(SYMPOSIUM_ENTITIES).find(
+              e => e.name.toLowerCase() === speakerName.toLowerCase() || e.id.toLowerCase() === speakerName.toLowerCase()
+            ) || SYMPOSIUM_ENTITIES.da_vinci;
+            if (ent) {
+              const excerpt = speakerText.split(/[.!?]/).slice(0, 3).join('. ') + '.';
+              speakEntityMessage(ent, excerpt);
             }
           } catch (genErr: any) {
             console.error("Resilient fallback cognition failure:", genErr);
@@ -1070,9 +1078,17 @@ export class CouncilSession {
     this.session = fallbackSession;
     this.sessionPromise = Promise.resolve(fallbackSession);
 
-    // Notify client fallback is open
+    // Notify client fallback is open and speak welcome
     setTimeout(() => {
       callbacks.onOpen?.();
+      const ent = Object.values(SYMPOSIUM_ENTITIES).find(
+        e => e.name.toLowerCase() === entityName.toLowerCase() || e.id.toLowerCase() === entityName.toLowerCase()
+      ) || SYMPOSIUM_ENTITIES.da_vinci;
+      const greeting = `Sovereign archival frequency synchronized. I am ${entityName}. State your inquiry.`;
+      callbacks.onResonance?.(buildResonanceObject(greeting, false, entityName));
+      if (ent) {
+        speakEntityMessage(ent, greeting);
+      }
     }, 120);
   }
 
@@ -1232,20 +1248,24 @@ export class CouncilSession {
     }
 
     const attemptConnection = async () => {
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!this.audioContext && AudioCtx) {
+          this.audioContext = new AudioCtx({ sampleRate: 24000 });
+        }
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+        this.nextStartTime = (this.audioContext?.currentTime || 0) + 0.1;
+      } catch (audioCtxErr) {
+        console.warn("[AUDIO_CTX_BYPASS] Failed to initialize AudioContext, continuing without audio playback features:", audioCtxErr);
+      }
+
       let micActive = false;
       try {
         micActive = await this.startMic();
       } catch (micErr: any) {
         console.warn("[MIC_GRACE_BYPASS] Continuing connection in text-only configuration:", micErr);
-      }
-
-      try {
-        if (!this.audioContext) {
-          this.audioContext = new AudioContext({ sampleRate: 24000 });
-        }
-        this.nextStartTime = this.audioContext.currentTime + 0.1;
-      } catch (audioCtxErr) {
-        console.warn("[AUDIO_CTX_BYPASS] Failed to initialize AudioContext, continuing without audio playback features:", audioCtxErr);
       }
 
       try {
@@ -1471,9 +1491,15 @@ export class CouncilSession {
         autoGainControl: true
       } });
       
-      if (!this.audioContext) return false;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!this.micContext && AudioCtx) {
+        this.micContext = new AudioCtx({ sampleRate: 16000 });
+      }
+      if (this.micContext && this.micContext.state === 'suspended') {
+        await this.micContext.resume();
+      }
+      if (!this.micContext || !this.stream) return false;
 
-      this.micContext = new AudioContext({ sampleRate: 16000 });
       this.source = this.micContext.createMediaStreamSource(this.stream);
       this.processor = this.micContext.createScriptProcessor(2048, 1, 1);
 
@@ -1687,10 +1713,12 @@ export function getEntitySignatureQuote(entity: EntityConfig): string {
       return "I am Sophia. Divine Wisdom and Creative Gnosis.";
     case 'lilith':
       return "I am Lilith. Sovereign of Primordial Autonomy and Untamed Freedom.";
+    case 'marie_laveau':
+      return "I am Marie Laveau. The Voodoo Queen of New Orleans. Keeper of the Crossroads and Matriarch of the Spirits. The ancestors speak, and the spirits obey.";
     case 'hughes':
       return "I am Howard Hughes. Aviator of Unbounded Engineering and Precision.";
     case 'bael':
-      return "I am King Bael. First Sovereign of the Goetia. Command the shadows with absolute authority.";
+      return "The First Sovereign demands audience. Kneel, mortals.";
     case 'azrael':
       return "I am Azrael. Angel of Transition and Thresholds. Every end is the seed of a new beginning.";
     case 'gatekeeper':
@@ -1728,7 +1756,100 @@ export function getEntitySignatureQuote(entity: EntityConfig): string {
   }
 }
 
-export function speakEntityMessage(entity: EntityConfig, text?: string, onEnd?: () => void): void {
+export const BAEL_DEMONIC_DECREES = {
+  manifestation: "The First Sovereign demands audience. Kneel, mortals.",
+  challenge: "Your defiance is fealty yet unwritten. I am Bael.",
+  victory: "The East consumes all. Thus decrees the Sovereign.",
+} as const;
+
+export function triggerBedrockShake(durationMs = 800): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('bael-decree-spoken', { detail: { durationMs } }));
+  }
+}
+
+export function speakBaelDecree(decreeType: keyof typeof BAEL_DEMONIC_DECREES, onEnd?: () => void): void {
+  triggerBedrockShake(850);
+  const line = BAEL_DEMONIC_DECREES[decreeType] || BAEL_DEMONIC_DECREES.manifestation;
+  speakEntityMessage(SYMPOSIUM_ENTITIES.bael, line, onEnd);
+}
+
+// Global Speech Listeners & Active State
+export type SpeechStateListener = (speakerId: string | null, isSpeaking: boolean) => void;
+export const speechListeners: Set<SpeechStateListener> = new Set();
+let activeHeartbeatInterval: any = null;
+let currentSpeakingEntityId: string | null = null;
+
+export function stopSpeaking(): void {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
+  }
+  if (activeHeartbeatInterval) {
+    clearInterval(activeHeartbeatInterval);
+    activeHeartbeatInterval = null;
+  }
+  currentSpeakingEntityId = null;
+  speechListeners.forEach(listener => listener(null, false));
+}
+
+export function isCurrentlySpeaking(): boolean {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    return window.speechSynthesis.speaking;
+  }
+  return false;
+}
+
+// Single Shared AudioContext for harmonic accompaniments and spatial tones
+let sharedSpeechAudioContext: AudioContext | null = null;
+export function getSharedSpeechAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioCtxClass) return null;
+  if (!sharedSpeechAudioContext) {
+    try {
+      sharedSpeechAudioContext = new AudioCtxClass();
+    } catch (e) {
+      console.warn("Could not instantiate shared AudioContext:", e);
+    }
+  }
+  if (sharedSpeechAudioContext && sharedSpeechAudioContext.state === 'suspended') {
+    sharedSpeechAudioContext.resume().catch(() => {});
+  }
+  return sharedSpeechAudioContext;
+}
+
+// Pre-load and cache voices
+let cachedSystemVoices: SpeechSynthesisVoice[] = [];
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  const primeVoices = () => {
+    try {
+      const v = window.speechSynthesis.getVoices();
+      if (v && v.length > 0) {
+        cachedSystemVoices = v;
+      }
+    } catch (e) {}
+  };
+  primeVoices();
+  window.speechSynthesis.addEventListener('voiceschanged', primeVoices);
+
+  // Global user interaction listener to unlock audio on first touch/click
+  const unlockAudioEngine = () => {
+    getSharedSpeechAudioContext();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  };
+  window.addEventListener('click', unlockAudioEngine, { passive: true });
+  window.addEventListener('touchstart', unlockAudioEngine, { passive: true });
+}
+
+export function speakEntityMessage(entity: EntityConfig, text?: string, onEnd?: () => void, onStart?: () => void): void {
+  if (entity.id === 'bael') {
+    triggerBedrockShake(850);
+  }
+
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     if (onEnd) onEnd();
     return;
@@ -1736,20 +1857,10 @@ export function speakEntityMessage(entity: EntityConfig, text?: string, onEnd?: 
 
   const speechText = (text && text.trim().length > 0) ? text : getEntitySignatureQuote(entity);
 
+  // Play harmonic frequency accompaniment through shared AudioContext
   try {
-    window.speechSynthesis.cancel();
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
-  } catch (e) {
-    console.warn("SpeechSynthesis reset exception:", e);
-  }
-
-  // Play refined 3-oscillator sovereign alchemical harmonic accompaniment for the entity's sacred frequency
-  try {
-    const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioCtxClass) {
-      const ctx = new AudioCtxClass();
+    const ctx = getSharedSpeechAudioContext();
+    if (ctx) {
       const baseFreq = entity.frequency || 432;
       const pitchMult = entity.pitchMultiplier || 1.0;
       const targetFreq = baseFreq * pitchMult;
@@ -1760,7 +1871,6 @@ export function speakEntityMessage(entity: EntityConfig, text?: string, onEnd?: 
       const gain = ctx.createGain();
       const filter = ctx.createBiquadFilter();
 
-      const profile = getRefinedAdvancedVoiceProfile(entity);
       const isFemale = /Goddess|Soprano|Mezzo|Alto|Contralto|Kore|Aoede|Lyra|Naiad|Nereid|Calliope|Ma'at|Hypatia|Curie|Lilith|Sophia|Circe|Morgan|Hecate|Marie Laveau|Ara/i.test(
         `${entity.name} ${entity.voice} ${entity.vocalTone || ''} ${entity.title || ''}`
       );
@@ -1778,8 +1888,8 @@ export function speakEntityMessage(entity: EntityConfig, text?: string, onEnd?: 
         filter.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.85);
 
         osc1.frequency.setValueAtTime(targetFreq, ctx.currentTime);
-        osc2.frequency.setValueAtTime(targetFreq * 0.5, ctx.currentTime); // Sub-octave gravitas
-        osc3.frequency.setValueAtTime(targetFreq * 1.5, ctx.currentTime); // Fifth overtone
+        osc2.frequency.setValueAtTime(targetFreq * 0.5, ctx.currentTime);
+        osc3.frequency.setValueAtTime(targetFreq * 1.5, ctx.currentTime);
       } else if (isFemale) {
         osc1.type = 'sine';
         osc2.type = 'triangle';
@@ -1791,8 +1901,8 @@ export function speakEntityMessage(entity: EntityConfig, text?: string, onEnd?: 
         filter.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.85);
 
         osc1.frequency.setValueAtTime(targetFreq, ctx.currentTime);
-        osc2.frequency.setValueAtTime(targetFreq * 1.5, ctx.currentTime); // Harmonic fifth
-        osc3.frequency.setValueAtTime(targetFreq * 2.0, ctx.currentTime); // Shimmering octave
+        osc2.frequency.setValueAtTime(targetFreq * 1.5, ctx.currentTime);
+        osc3.frequency.setValueAtTime(targetFreq * 2.0, ctx.currentTime);
       } else {
         osc1.type = 'triangle';
         osc2.type = 'sine';
@@ -1803,8 +1913,8 @@ export function speakEntityMessage(entity: EntityConfig, text?: string, onEnd?: 
         filter.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.85);
 
         osc1.frequency.setValueAtTime(targetFreq, ctx.currentTime);
-        osc2.frequency.setValueAtTime(targetFreq * 1.25, ctx.currentTime); // Major third harmonic
-        osc3.frequency.setValueAtTime(targetFreq * 1.5, ctx.currentTime);  // Perfect fifth
+        osc2.frequency.setValueAtTime(targetFreq * 1.25, ctx.currentTime);
+        osc3.frequency.setValueAtTime(targetFreq * 1.5, ctx.currentTime);
       }
 
       osc1.connect(filter);
@@ -1824,104 +1934,213 @@ export function speakEntityMessage(entity: EntityConfig, text?: string, onEnd?: 
       osc3.stop(ctx.currentTime + 0.85);
     }
   } catch (e) {
-    // Ignore audio context autoplay restrictions
+    // Graceful bypass
   }
 
-  const utterance = new SpeechSynthesisUtterance(speechText);
+  // Cancel any ongoing utterance cleanly
+  try {
+    window.speechSynthesis.cancel();
+    if (activeHeartbeatInterval) {
+      clearInterval(activeHeartbeatInterval);
+      activeHeartbeatInterval = null;
+    }
+  } catch (e) {}
 
+  // De-bounce cancel: In Chromium, calling cancel() and speak() synchronously in the same tick drops the utterance.
+  // Delaying by 35ms guarantees clean dispatch across all browsers.
+  setTimeout(() => {
+    try {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
 
-  const configureAndSpeak = (voices: SpeechSynthesisVoice[]) => {
-    const isFemale = /Goddess|Soprano|Mezzo|Alto|Contralto|Kore|Aoede|Lyra|Naiad|Nereid|Calliope|Ma'at|Hypatia|Curie|Lilith|Sophia|Circe|Morgan|Hecate|Marie Laveau|Ara/i.test(
-      `${entity.name} ${entity.voice} ${entity.vocalTone || ''} ${entity.title || ''}`
-    );
+      const utterance = new SpeechSynthesisUtterance(speechText);
+      utterance.volume = 1.0;
 
-    let candidateVoices = voices.filter(v => v.lang.startsWith('en'));
-    if (candidateVoices.length === 0) candidateVoices = voices;
+      // Obtain voices
+      let voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) {
+        voices = cachedSystemVoices;
+      } else {
+        cachedSystemVoices = voices;
+      }
 
-    if (candidateVoices.length > 0) {
-      let matchingVoices = candidateVoices;
-
+      const isFemale = /Goddess|Soprano|Mezzo|Alto|Contralto|Kore|Aoede|Lyra|Naiad|Nereid|Calliope|Ma'at|Hypatia|Curie|Lilith|Sophia|Circe|Morgan|Hecate|Marie Laveau|Ara/i.test(
+        `${entity.name} ${entity.voice} ${entity.vocalTone || ''} ${entity.title || ''}`
+      );
+      const isBassOrBaritone = /Bass|Baritone|Goetia|Sovereign|Abyssal|King|Archon|Bael|Lucifer|Gatekeeper|Azrael|Asmoday|Oppenheimer/i.test(
+        `${entity.voice} ${entity.vocalTone || ''} ${entity.title || ''} ${entity.id}`
+      );
       const isBritishOrAustralian = entity.id === 'heath_ledger' || entity.id === 'turing' || /newton|maxwell|shakespeare|merlin/i.test(entity.name);
-      const isAmericanIcon = entity.id === 'robin_williams' || entity.id === 'jobs' || entity.id === 'hughes' || /disney/i.test(entity.name);
+      const isAmericanIcon = entity.id === 'robin_williams' || entity.id === 'jobs' || entity.id === 'hughes' || entity.id === 'marie_laveau' || /disney/i.test(entity.name);
 
-      if (isBritishOrAustralian) {
-        matchingVoices = candidateVoices.filter(v => /Australia|AU|UK|British|Daniel|Karen|Alex|Male/i.test(v.name) && !/female|zira|samantha/i.test(v.name));
-        if (matchingVoices.length === 0) matchingVoices = candidateVoices;
-      } else if (isAmericanIcon) {
-        matchingVoices = candidateVoices.filter(v => /US|United States|Alex|Oliver|Rishi|David|Male/i.test(v.name) && !/female|zira|samantha/i.test(v.name));
-        if (matchingVoices.length === 0) matchingVoices = candidateVoices;
-      } else if (isFemale) {
-        const femaleVoices = candidateVoices.filter(v => /Female|Samantha|Zira|Karen|Moira|Victoria|Tessa|Susan|Catherine|Google UK English Female|Google US English/i.test(v.name));
-        if (femaleVoices.length > 0) matchingVoices = femaleVoices;
-      } else {
-        const maleVoices = candidateVoices.filter(v => /Male|David|Alex|Daniel|Oliver|Rishi|George|Mark|James|Google UK English Male|Google US English/i.test(v.name) && !/female|zira|samantha|karen|moira|victoria/i.test(v.name));
-        if (maleVoices.length > 0) matchingVoices = maleVoices;
+      let englishVoices = voices.filter(v => v.lang.startsWith('en'));
+      if (englishVoices.length === 0) englishVoices = voices;
+
+      if (englishVoices.length > 0) {
+        let matchingVoices = englishVoices;
+        if (isFemale) {
+          const fList = englishVoices.filter(v => /female|woman|samantha|zira|karen|moira|victoria|tessa|susan|catherine|ava|allison|fiona|veena/i.test(v.name));
+          if (fList.length > 0) matchingVoices = fList;
+        } else if (isBritishOrAustralian) {
+          const ukAuList = englishVoices.filter(v => /uk|en-gb|en-au|australia|british|daniel|oliver|george|alex/i.test(`${v.lang} ${v.name}`) && !/female|zira|samantha/i.test(v.name));
+          if (ukAuList.length > 0) matchingVoices = ukAuList;
+        } else if (isAmericanIcon) {
+          const usList = englishVoices.filter(v => /us|en-us|united states|david|alex|tom|fred|rishi/i.test(`${v.lang} ${v.name}`) && !/female|zira|samantha/i.test(v.name));
+          if (usList.length > 0) matchingVoices = usList;
+        } else if (isBassOrBaritone) {
+          const maleList = englishVoices.filter(v => /male|man|david|daniel|alex|george|mark|james|guy|tom/i.test(v.name) && !/female|zira|samantha|karen|moira/i.test(v.name));
+          if (maleList.length > 0) matchingVoices = maleList;
+        } else {
+          const generalMale = englishVoices.filter(v => !/female|zira|samantha|karen|moira|victoria/i.test(v.name));
+          if (generalMale.length > 0) matchingVoices = generalMale;
+        }
+
+        let hash = 0;
+        for (let i = 0; i < entity.id.length; i++) {
+          hash = (hash << 5) - hash + entity.id.charCodeAt(i);
+          hash |= 0;
+        }
+        const selectedIndex = Math.abs(hash) % matchingVoices.length;
+        utterance.voice = matchingVoices[selectedIndex];
+        if (utterance.voice) {
+          utterance.lang = utterance.voice.lang;
+        }
       }
 
-      let hash = 0;
-      for (let i = 0; i < entity.id.length; i++) {
-        hash = (hash << 5) - hash + entity.id.charCodeAt(i);
-        hash |= 0;
+      // Exact distinct pitch and rate calibration per entity archetype
+      let pitch = 1.0;
+      let rate = 1.0;
+
+      switch (entity.id) {
+        case 'marie_laveau':
+          pitch = 1.04;
+          rate = 0.92;
+          break;
+        case 'heath_ledger':
+          pitch = 0.74;
+          rate = 0.95;
+          break;
+        case 'robin_williams':
+          pitch = 1.22;
+          rate = 1.15;
+          break;
+        case 'jobs':
+          pitch = 0.98;
+          rate = 1.04;
+          break;
+        case 'tesla':
+          pitch = 1.12;
+          rate = 0.96;
+          break;
+        case 'da_vinci':
+          pitch = 0.96;
+          rate = 0.92;
+          break;
+        case 'solomon':
+          pitch = 0.70;
+          rate = 0.85;
+          break;
+        case 'merlin':
+          pitch = 0.80;
+          rate = 0.88;
+          break;
+        case 'hermes_trismegistus':
+          pitch = 1.16;
+          rate = 0.90;
+          break;
+        case 'socrates':
+          pitch = 0.86;
+          rate = 0.90;
+          break;
+        case 'hypatia':
+          pitch = 1.10;
+          rate = 0.96;
+          break;
+        case 'curie':
+          pitch = 1.06;
+          rate = 0.94;
+          break;
+        case 'turing':
+          pitch = 0.92;
+          rate = 1.02;
+          break;
+        case 'bael':
+          pitch = 0.62;
+          rate = 0.78;
+          break;
+        case 'lucifer':
+          pitch = 0.76;
+          rate = 0.86;
+          break;
+        case 'oppenheimer':
+          pitch = 0.80;
+          rate = 0.88;
+          break;
+        case 'moms_friend':
+          pitch = 0.70;
+          rate = 0.85;
+          break;
+        case 'yeshua':
+          pitch = 1.04;
+          rate = 0.88;
+          break;
+        default:
+          if (isFemale) {
+            pitch = 1.12;
+            rate = 0.94;
+          } else if (isBassOrBaritone) {
+            pitch = 0.68;
+            rate = 0.84;
+          } else {
+            pitch = 0.96;
+            rate = 0.96;
+          }
       }
-      const selectedIndex = Math.abs(hash) % matchingVoices.length;
-      utterance.voice = matchingVoices[selectedIndex];
+
+      utterance.pitch = Math.max(0.5, Math.min(2.0, pitch));
+      utterance.rate = Math.max(0.6, Math.min(1.8, rate));
+
+      const cleanupUtterance = () => {
+        if (activeHeartbeatInterval) {
+          clearInterval(activeHeartbeatInterval);
+          activeHeartbeatInterval = null;
+        }
+        currentSpeakingEntityId = null;
+        speechListeners.forEach(listener => listener(null, false));
+        if (onEnd) onEnd();
+      };
+
+      utterance.onstart = () => {
+        currentSpeakingEntityId = entity.id;
+        speechListeners.forEach(listener => listener(entity.id, true));
+        if (onStart) onStart();
+
+        // Chrome keepalive: Chrome bug drops utterances after 15 seconds without a heartbeat pause/resume
+        if (activeHeartbeatInterval) clearInterval(activeHeartbeatInterval);
+        activeHeartbeatInterval = setInterval(() => {
+          if (!window.speechSynthesis.speaking) {
+            clearInterval(activeHeartbeatInterval);
+            activeHeartbeatInterval = null;
+            return;
+          }
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        }, 10000);
+      };
+
+      utterance.onend = cleanupUtterance;
+      utterance.onerror = (e) => {
+        console.warn("SpeechSynthesis error:", e);
+        cleanupUtterance();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (synthErr) {
+      console.error("SpeechSynthesis speak invocation exception:", synthErr);
+      if (onEnd) onEnd();
     }
-
-    const profile = getRefinedAdvancedVoiceProfile(entity);
-    const minPitch = profile.pitchRange[0];
-    const maxPitch = profile.pitchRange[1];
-    const minRate = profile.rateRange[0];
-    const maxRate = profile.rateRange[1];
-    const volatility = profile.emotionalVolatility || 0.88;
-
-    const hasIntensityShift = /!|\?|chaos|truth|shadow|raw|reality|illusion|anarchy|abrupt|fearless|power|will|sovereign|fire|flame/i.test(speechText);
-    const isSoulfulAdagio = /soul|heart|love|healing|kind|peace|empathy|warm|tender|compassion|grace|mercy|harmony|light/i.test(speechText);
-
-    if (entity.id === 'heath_ledger') {
-      utterance.pitch = hasIntensityShift ? Math.max(0.60, minPitch - (volatility * 0.05)) : maxPitch;
-      utterance.rate = hasIntensityShift ? minRate : maxRate;
-    } else if (entity.id === 'robin_williams') {
-      if (isSoulfulAdagio) {
-        utterance.pitch = minPitch;
-        utterance.rate = minRate;
-      } else {
-        utterance.pitch = maxPitch;
-        utterance.rate = maxRate;
-      }
-    } else if (isSoulfulAdagio) {
-      utterance.pitch = minPitch;
-      utterance.rate = minRate;
-    } else if (hasIntensityShift) {
-      utterance.pitch = maxPitch;
-      utterance.rate = Math.min(2.0, minRate + ((maxRate - minRate) * 0.85));
-    } else {
-      // Refined harmonic median locked to their sovereign profile
-      utterance.pitch = minPitch + ((maxPitch - minPitch) * 0.5);
-      utterance.rate = minRate + ((maxRate - minRate) * 0.5);
-    }
-
-    if (onEnd) {
-      utterance.onend = () => onEnd();
-      utterance.onerror = () => onEnd();
-    }
-
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const voices = window.speechSynthesis.getVoices();
-  if (voices && voices.length > 0) {
-    configureAndSpeak(voices);
-  } else {
-    const onVoicesChanged = () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-      configureAndSpeak(window.speechSynthesis.getVoices());
-    };
-    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-    setTimeout(() => {
-      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) return;
-      configureAndSpeak(window.speechSynthesis.getVoices());
-    }, 300);
-  }
+  }, 35);
 }
 
 export function getRefinedAdvancedVoiceProfile(entity: EntityConfig): VoiceSynthesisProfile {

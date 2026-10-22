@@ -248,7 +248,6 @@ export const SomaticRetina: React.FC<SomaticRetinaProps> = ({
             ref={videoRef} 
             autoPlay 
             playsInline 
-            referrerPolicy="no-referrer"
             className={cn(
               "w-full h-full object-cover transition-all duration-700",
               cameraActive ? "opacity-95 filter saturate-[1.1] brightness-[1.05]" : "opacity-0"

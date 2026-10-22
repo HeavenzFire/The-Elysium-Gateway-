@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.29.0",
+    "@google/genai": "^2.17.1",
+    "@octokit/rest": "^22.0.1",
     "@tailwindcss/vite": "^4.1.14",
     "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^5.0.4",
@@ -19,10 +20,13 @@
     "d3": "^7.9.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "firebase": "^13.0.0",
+    "idb": "^8.0.3",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.5.0",
     "three": "^0.183.2",
     "vite": "^6.2.0",

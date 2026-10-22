@@ -25,6 +25,7 @@ import {
   FileText
 } from 'lucide-react';
 import { downloadFormattedTranscript } from '../services/transcriptExport';
+import { ternaryVault, SessionHistoryRecord } from '../services/ternaryVault';
 
 export interface ArchiveMessage {
   text: string;
@@ -33,20 +34,7 @@ export interface ArchiveMessage {
   timestamp?: string;
 }
 
-export interface ArchiveSession {
-  id: string;
-  title: string;
-  timestamp: string;
-  activeBaseline: number;
-  entitiesCount: number;
-  entityNames: string[];
-  activeProblem?: string;
-  transcript: ArchiveMessage[];
-  coherence?: number;
-  isFavorite?: boolean;
-  isEntangled?: boolean;
-  quantumCoordinates?: string;
-}
+export type ArchiveSession = SessionHistoryRecord;
 
 // Generate a deterministic series of numbers based on simple string hashing
 const getFluctuationPoints = (seedStr: string, length: number = 8) => {
@@ -136,22 +124,26 @@ export function ConversationArchive({ onClose, resonanceFreqNum = 432 }: Convers
   const [selectedEntanglementSession, setSelectedEntanglementSession] = useState<ArchiveSession | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
-  // Initialize and load from local storage
+  // Initialize and load from Ternary Vault (IndexedDB)
   useEffect(() => {
-    const raw = localStorage.getItem('ELYSIUM_SESSIONS_ARCHIVE');
-    if (raw) {
+    let isMounted = true;
+    async function loadSessions() {
       try {
-        const parsed = JSON.parse(raw) as ArchiveSession[];
-        setSessions(parsed);
+        const vaultSessions = await ternaryVault.getAllSessions();
+        if (isMounted) {
+          if (vaultSessions.length > 0) {
+            setSessions(vaultSessions);
+          } else {
+            setSessions(MOCK_SESSIONS);
+          }
+        }
       } catch (e) {
-        console.error("Failed to parse sessions archive. Loading mock conversations.");
-        setSessions(MOCK_SESSIONS);
-        localStorage.setItem('ELYSIUM_SESSIONS_ARCHIVE', JSON.stringify(MOCK_SESSIONS));
+        console.error("Failed to load sessions from ternaryVault:", e);
+        if (isMounted) setSessions(MOCK_SESSIONS);
       }
-    } else {
-      setSessions(MOCK_SESSIONS);
-      localStorage.setItem('ELYSIUM_SESSIONS_ARCHIVE', JSON.stringify(MOCK_SESSIONS));
     }
+    loadSessions();
+    return () => { isMounted = false; };
   }, []);
 
   const showSuccessNotification = (msg: string) => {
@@ -160,16 +152,18 @@ export function ConversationArchive({ onClose, resonanceFreqNum = 432 }: Convers
   };
 
   // Toggle favorite / important flag
-  const toggleFavorite = (id: string, e?: React.MouseEvent) => {
+  const toggleFavorite = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const updated = sessions.map(s => {
       if (s.id === id) {
-        return { ...s, isFavorite: !s.isFavorite };
+        const newFav = !s.isFavorite;
+        const modified = { ...s, isFavorite: newFav };
+        ternaryVault.saveSession(modified).catch(console.warn);
+        return modified;
       }
       return s;
     });
     setSessions(updated);
-    localStorage.setItem('ELYSIUM_SESSIONS_ARCHIVE', JSON.stringify(updated));
     
     // Sync to inspect view state if currently open
     if (selectedSession?.id === id) {
@@ -181,21 +175,22 @@ export function ConversationArchive({ onClose, resonanceFreqNum = 432 }: Convers
   };
 
   // Toggle Entanglement State manually or during handshake
-  const toggleEntangled = (id: string, e?: React.MouseEvent) => {
+  const toggleEntangled = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const updated = sessions.map(s => {
       if (s.id === id) {
         const nextState = !s.isEntangled;
-        return { 
+        const modified = { 
           ...s, 
           isEntangled: nextState,
           quantumCoordinates: nextState ? `Θ-${(Math.random() * 2).toFixed(3)}-${resonanceFreqNum}-ENTANGLED` : undefined
         };
+        ternaryVault.saveSession(modified).catch(console.warn);
+        return modified;
       }
       return s;
     });
     setSessions(updated);
-    localStorage.setItem('ELYSIUM_SESSIONS_ARCHIVE', JSON.stringify(updated));
     
     if (selectedSession?.id === id) {
       setSelectedSession(prev => prev ? { 
@@ -307,19 +302,19 @@ export function ConversationArchive({ onClose, resonanceFreqNum = 432 }: Convers
       title: session.title,
       tuningName: "Sovereign 144Hz Harmonic Archive",
       leaderName: "King Solomon",
-      dateString: session.date,
-      resonanceScore: session.resonance,
+      dateString: session.timestamp,
+      resonanceScore: session.activeBaseline,
       coherence: session.coherence
     }, `Symposium_${session.title.replace(/\s+/g, '_')}`);
     showSuccessNotification("Session exported as formatted .TXT");
   };
 
   // Delete a specific session
-  const deleteSession = (id: string, e?: React.MouseEvent) => {
+  const deleteSession = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const updated = sessions.filter(s => s.id !== id);
     setSessions(updated);
-    localStorage.setItem('ELYSIUM_SESSIONS_ARCHIVE', JSON.stringify(updated));
+    await ternaryVault.deleteSession(id);
     if (selectedSession?.id === id) {
       setSelectedSession(null);
     }
@@ -327,9 +322,17 @@ export function ConversationArchive({ onClose, resonanceFreqNum = 432 }: Convers
   };
 
   // Clear all sessions
-  const clearAllSessions = () => {
+  const clearAllSessions = async () => {
     setSessions([]);
-    localStorage.removeItem('ELYSIUM_SESSIONS_ARCHIVE');
+    try {
+      const all = await ternaryVault.getAllSessions();
+      for (const s of all) {
+        await ternaryVault.deleteSession(s.id);
+      }
+      localStorage.removeItem('ELYSIUM_SESSIONS_ARCHIVE');
+    } catch (e) {
+      console.warn("Purge error:", e);
+    }
     setSelectedSession(null);
     setShowPurgeConfirm(false);
     showSuccessNotification("Chronicle repository purged");
