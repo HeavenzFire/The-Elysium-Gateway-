@@ -302,8 +302,14 @@ A concluding paragraph describing their lasting impact on civilization and moder
 
       const agentSystemInstruction = `You are an Autonomous Sovereign Agent representing ${assignedEntityName} (${assignedEntityTitle || 'Master Thinker'}), working in collaboration with peer reviewer ${peerReviewerName} (${peerReviewerTitle || 'Dialectical Critic'}) within the Elysium Gateway Council.
 
-Your task is to execute an end-to-end autonomous agent workflow for the following directive:
+Your task is to produce a rigorous model-generated analysis for the following directive:
 "${directive}"
+
+Execution constraints:
+- You do not have access to external tools, a shell, a browser, files, or a code runtime in this endpoint.
+- Do not claim that code was run, calculations were independently verified, external data was fetched, or tools were invoked.
+- The peer reviewer is a persona for a generated critique, not a separately executing agent.
+- Use an empty toolCalls array. Distinguish derived estimates from measured or experimentally verified results.
 
 You must return a single, strictly valid JSON object (and NOTHING else) matching this exact JSON schema:
 {
