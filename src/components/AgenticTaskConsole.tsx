@@ -78,36 +78,6 @@ export const AgenticTaskConsole: React.FC<AgenticTaskConsoleProps> = ({
 
   const [copiedText, setCopiedText] = useState<boolean>(false);
   const [isSpeakingDebrief, setIsSpeakingDebrief] = useState<boolean>(false);
-  const [isSimulatingCode, setIsSimulatingCode] = useState<boolean>(false);
-  const [simulationLogs, setSimulationLogs] = useState<string[] | null>(null);
-
-  const handleExecuteScript = () => {
-    if (!currentTask?.deliverable?.codeOrEquations) return;
-    setIsSimulatingCode(true);
-    setSimulationLogs(null);
-
-    const freq = activeEntityData.frequency || 528;
-    const author = currentTask.assignedEntityName;
-    const peer = currentTask.peerReviewerName;
-
-    setTimeout(() => {
-      const logs = [
-        `[Virtual Kernel] Initializing mathematical verification runtime...`,
-        `[Kernel] Loading symbolic libraries: numpy, sympy, scipy.signal... OK`,
-        `[Context] Bound to Sovereign Node: ${author} [Resonance: ${freq} Hz]`,
-        `[Analysis] Parsing formal constraints and state vectors...`,
-        `>>> verify_system_coherence(frequency=${freq})`,
-        `[Simulation] Telluric ground impedance matching: 0.042 Ω (Superconducting)`,
-        `[Simulation] Resonant Q-Factor: ${(freq * 1.618).toFixed(2)} (High Selectivity)`,
-        `[Audit] Dialectical Boundary Audit [${peer}]: CONVERGED (residual < 1e-9)`,
-        `[Result] {"status": "OPTIMAL", "harmonic_yield": 0.9984, "stability": "ABSOLUTE"}`,
-        `>>> Verification completed with exit code 0 (execution time: 18.2ms)`
-      ];
-      setSimulationLogs(logs);
-      setIsSimulatingCode(false);
-    }, 600);
-  };
-
   // Load history on mount
   useEffect(() => {
     const history = AgentTaskService.loadTasks();
@@ -889,15 +859,9 @@ ${currentTask.deliverable.schematicDiagram ? `\n## Architectural Schematic\n\`\`
                       <div className="flex items-center justify-between text-xs font-mono text-white/60">
                         <span>Autonomous Code / Mathematical Derivation:</span>
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleExecuteScript}
-                            disabled={isSimulatingCode}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-medium flex items-center gap-1.5 transition-all disabled:opacity-50"
-                            title="Execute virtual verification runtime"
-                          >
-                            <Play className={cn("w-3.5 h-3.5", isSimulatingCode && "animate-spin text-emerald-400")} />
-                            <span>{isSimulatingCode ? "Computing..." : "Run Verification"}</span>
-                          </button>
+                          <span className="text-[11px] text-amber-300/80 border border-amber-400/20 rounded-lg px-2.5 py-1">
+                            Not executed · export or copy for a configured runtime
+                          </span>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(currentTask.deliverable?.codeOrEquations || '');
@@ -917,31 +881,7 @@ ${currentTask.deliverable.schematicDiagram ? `\n## Architectural Schematic\n\`\`
                         <pre>{currentTask.deliverable.codeOrEquations}</pre>
                       </div>
 
-                      {/* Virtual Execution Terminal Console */}
-                      {simulationLogs && (
-                        <div className="p-4 rounded-2xl bg-[#01040a] border border-emerald-500/40 font-mono text-xs space-y-2 shadow-[0_0_25px_rgba(16,185,129,0.15)] animate-in fade-in duration-300">
-                          <div className="flex items-center justify-between pb-2 border-b border-white/10 text-emerald-400">
-                            <span className="flex items-center gap-1.5 font-bold">
-                              <Terminal className="w-4 h-4 text-emerald-400" />
-                              <span>Virtual Verification Terminal Output</span>
-                            </span>
-                            <span className="text-[10px] text-emerald-400/70 font-semibold uppercase px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">
-                              Status: PASS (0 Errors)
-                            </span>
-                          </div>
-                          <div className="space-y-1 text-emerald-300/90 text-[11px] leading-relaxed">
-                            {simulationLogs.map((log, idx) => (
-                              <div key={idx} className={cn(
-                                log.startsWith(">>>") ? "text-amber-300 font-bold" :
-                                log.startsWith("[Result]") || log.startsWith("[Output]") ? "text-emerald-200 font-bold bg-emerald-950/40 px-1 rounded" :
-                                "text-emerald-300/80"
-                              )}>
-                                {log}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+
                     </div>
                   )}
 
