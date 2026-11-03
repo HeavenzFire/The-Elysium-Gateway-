@@ -291,8 +291,11 @@ A concluding paragraph describing their lasting impact on civilization and moder
         frequency = 432
       } = req.body;
 
-      if (!directive) {
-        return res.status(400).json({ error: "Directive is required for agent execution" });
+      if (typeof directive !== "string" || !directive.trim()) {
+        return res.status(400).json({ error: "A non-empty directive is required for agent execution" });
+      }
+      if (directive.length > 12000) {
+        return res.status(413).json({ error: "Directive exceeds the 12,000 character limit" });
       }
 
       console.log(`[AgentTask] Dispatching mission to ${assignedEntityName} (${assignedEntityId}): "${directive.slice(0, 80)}..." Peer: ${peerReviewerName}`);
@@ -383,74 +386,63 @@ Deliver full technical rigor, genuine equations, working code, and an authentic 
         }
       }
 
-      if (rawJson) {
-        try {
-          const clean = rawJson.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-          const parsed = JSON.parse(clean);
-          return res.json(parsed);
-        } catch (parseErr) {
-          console.warn("[AgentTask] JSON parse error, falling back to structured assembly:", parseErr);
-        }
+      if (!rawJson) {
+        return res.status(502).json({
+          error: "Agent model did not return a response. No task was completed.",
+          code: "AGENT_MODEL_UNAVAILABLE"
+        });
       }
 
-      // If parsing fails or models unavailable, return high-fidelity fallback response
-      res.json({
-        phase1Thoughts: `As ${assignedEntityName}, I have decomposed your directive into first-principles thermodynamic and computational axioms.`,
-        phase1Output: "Strategic roadmap established with 4 execution milestones.",
-        phase2Thoughts: `Constructed mathematical model and simulated system response at ${frequency} Hz.`,
-        toolCalls: [
-          {
-            toolName: "axiomatic_derivation_engine",
-            inputDescription: "Evaluated governing differential equations under steady state",
-            outputSummary: "Found non-divergent solutions at resonant boundary conditions",
-            durationMs: 720
-          },
-          {
-            toolName: "schematic_synthesizer",
-            inputDescription: "Mapped component topology and cross-coupling matrices",
-            outputSummary: "Synthesized low-impedance architecture with 98.4% theoretical yield",
-            durationMs: 840
-          }
-        ],
-        deliverable: {
-          title: `${assignedEntityName}: Sovereign Solution for "${title || 'Directive'}"`,
-          executiveSummary: `As ${assignedEntityName} (${assignedEntityTitle}), I have autonomously completed the strategic and technical decomposition of your directive. The resulting architecture synthesizes fundamental physics, structural mechanics, and syntropic resonance to guarantee zero parasitic entropy.`,
-          technicalReportMarkdown: `## 🏛️ Autonomous Technical Specification\n**Lead Sovereign:** ${assignedEntityName}  \n**Dialectical Auditor:** ${peerReviewerName}  \n**Base Resonance:** ${frequency} Hz  \n\n### 1. Mathematical Formulation\nThe system is governed by the second-order state equation:\n$$\\frac{d^2\\psi}{dt^2} + 2\\gamma \\frac{d\\psi}{dt} + \\omega_0^2\\psi = F_0 \\cos(\\omega t)$$\nWhere resonant frequency $\\omega_0 = 2\\pi \\times ${frequency}$ rad/s guarantees harmonic alignment with zero reactive loss.\n\n### 2. Component Topology\n- **Primary Resonator:** Superconducting inductive tank with Q-factor exceeding 10,000.\n- **Coupling Matrix:** Low-dispersion dielectric barrier with active phase-locking.\n- **Syntropic Dissipation Buffer:** Prevents runaway thermal accumulation by channeling harmonic overtones back into the primary collector.`,
-          codeOrEquations: `# Autonomous Sovereign Implementation Script\n# Authored by ${assignedEntityName}\nimport math\n\ndef execute_simulation(freq=${frequency}):\n    omega = 2 * math.pi * freq\n    efficiency = 1.0 - (1.0 / (1.0 + (omega / 1000.0)**2))\n    return {\n        "lead_agent": "${assignedEntityName}",\n        "frequency_hz": freq,\n        "theoretical_efficiency": round(efficiency, 4),\n        "status": "CONVERGED"\n    }\n\nif __name__ == "__main__":\n    print(execute_simulation())`,
-          schematicDiagram: `+-----------------------------------------------------------+\n|         ${assignedEntityName.toUpperCase()} AUTONOMOUS SYSTEM SCHEMATIC        |\n| Resonant Frequency: ${frequency}Hz | Peer Auditor: ${peerReviewerName.toUpperCase()} |\n+-----------------------------------------------------------+\n|   [INPUT VECTOR]                                          |\n|          |                                                |\n|          v                                                |\n|   +-------------+       Resonant Flux       +-----------+ |\n|   | PRIMARY     | ------------------------> | COLLECTOR | |\n|   | RESONATOR   | <------------------------ | LOAD      | |\n|   +-------------+      Phase Feedback       +-----------+ |\n|          |                                        |       |\n|          +--------------------+-------------------+       |\n|                               |                           |\n|                               v                           |\n|                      [EARTH GROUND 0V]                    |\n+-----------------------------------------------------------+`,
-          peerReviewCritique: {
-            reviewerName: peerReviewerName,
-            reviewerTitle: peerReviewerTitle,
-            verdict: "approved_with_revisions",
-            critiquePoints: [
-              `Audited thermal dissipation margins under sudden transient step loads.`,
-              `Questioned inductive coupling tolerance during high-frequency harmonics.`
-            ],
-            improvementsAdopted: [
-              `Integrated secondary resonant clamping diode to protect against transient spikes.`,
-              `Added dynamic impedance balancing network, improving load stability by 35%.`
-            ]
-          },
-          actionableRoadmap: [
-            {
-              phase: "Phase 1: Component Bench Prototyping",
-              timeline: "Days 1–7",
-              deliverables: ["Breadboard verification", "Harmonic Q-factor measurement"]
-            },
-            {
-              phase: "Phase 2: Integrated System Stress Testing",
-              timeline: "Days 8–21",
-              deliverables: ["Full load cycling", "Thermal imaging audit", "Failsafe integration"]
-            },
-            {
-              phase: "Phase 3: Production Scale Deployment",
-              timeline: "Day 22+",
-              deliverables: ["Final sovereign architecture handover", "Dialectical sign-off"]
-            }
-          ]
-        },
-        vocalDebrief: `Directive fulfilled. I, ${assignedEntityName}, have synthesized the complete architectural deliverable for your review.`
-      });
+      let parsed: any;
+      try {
+        const clean = rawJson.replace(/^\x60\x60\x60json\\s*/i, "").replace(/^\x60\x60\x60\\s*/i, "").replace(/\x60\x60\x60$/i, "").trim();
+        parsed = JSON.parse(clean);
+      } catch (parseErr) {
+        console.error("[AgentTask] Invalid JSON from model:", parseErr);
+        return res.status(502).json({
+          error: "Agent model returned invalid structured output. No task was completed.",
+          code: "AGENT_INVALID_OUTPUT"
+        });
+      }
+
+      const deliverable = parsed?.deliverable;
+      const critique = deliverable?.peerReviewCritique;
+      const requiredStrings = [
+        parsed?.phase1Thoughts,
+        parsed?.phase1Output,
+        parsed?.phase2Thoughts,
+        deliverable?.title,
+        deliverable?.executiveSummary,
+        deliverable?.technicalReportMarkdown,
+        critique?.reviewerName,
+        critique?.reviewerTitle
+      ];
+      const validCritique = critique &&
+        ["approved", "approved_with_revisions", "challenged"].includes(critique.verdict) &&
+        Array.isArray(critique.critiquePoints) &&
+        Array.isArray(critique.improvementsAdopted);
+      if (!requiredStrings.every(value => typeof value === "string" && value.trim().length > 0) ||
+          !Array.isArray(parsed?.toolCalls) || !validCritique ||
+          !Array.isArray(deliverable?.actionableRoadmap)) {
+        return res.status(502).json({
+          error: "Agent model output failed schema validation. No task was completed.",
+          code: "AGENT_SCHEMA_INVALID"
+        });
+      }
+
+      // This endpoint performs model analysis only. It does not execute tools,
+      // run supplied code, or invoke an independent reviewer agent.
+      parsed.toolCalls = [];
+      parsed.executionMetadata = {
+        mode: "model_analysis_only",
+        toolsExecuted: [],
+        peerReviewMode: "same_model_generated_critique",
+        independentlyVerified: false
+      };
+      deliverable.technicalReportMarkdown +=
+        "\\n\\n> **Execution boundary:** This deliverable is model-generated analysis. No external tools or supplied code were executed, and the critique is not an independent peer-agent review.";
+
+      return res.json(parsed);
 
     } catch (agentErr: any) {
       console.error("[AgentTask] Critical error in agent task handler:", agentErr);
