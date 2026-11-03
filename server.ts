@@ -446,7 +446,7 @@ Deliver full technical rigor, genuine equations, working code, and an authentic 
         independentlyVerified: false
       };
       deliverable.technicalReportMarkdown +=
-        "\\n\\n> **Execution boundary:** This deliverable is model-generated analysis. No external tools or supplied code were executed, and the critique is not an independent peer-agent review.";
+        "\n\n> **Execution boundary:** This deliverable is model-generated analysis. No external tools or supplied code were executed, and the critique is not an independent peer-agent review.";
 
       return res.json(parsed);
 
@@ -757,8 +757,9 @@ Deliver full technical rigor, genuine equations, working code, and an authentic 
   }
 
   const PORT = process.env.NODE_ENV === "production" ? (Number(process.env.PORT) || 3000) : 3000;
-  server.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Server] Live on http://0.0.0.0:${PORT}`);
+  const HOST = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
+  server.listen(PORT, HOST, () => {
+    console.log(`[Server] Live on http://${HOST}:${PORT}`);
   });
 }
 
