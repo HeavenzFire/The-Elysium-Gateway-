@@ -162,6 +162,16 @@ export class ControlPlaneRegistry {
         throw legacyError;
       }
     }
+    // A process can be terminated during an append. A non-newline-terminated tail
+    // is not a committed JSONL record; discard only that incomplete final fragment.
+    if (raw.length > 0 && !raw.endsWith("\n")) {
+      const lastNewline = raw.lastIndexOf("\n");
+      const safeLength = lastNewline < 0 ? 0 : lastNewline + 1;
+      const handle = await open(this.ledgerPath, "r+");
+      try { await handle.truncate(Buffer.byteLength(raw.slice(0, safeLength), "utf8")); await handle.sync(); }
+      finally { await handle.close(); }
+      raw = raw.slice(0, safeLength);
+    }
     let state = emptySnapshot();
     let sequence = 0;
     let headHash = GENESIS;
