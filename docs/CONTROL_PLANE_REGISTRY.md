@@ -1,66 +1,69 @@
-# HeavenzFire Control Plane Registry — Phase 1
+# HeavenzFire Control Plane Registry — Durable Local Foundation
 
-This phase adds the durable registry foundation used by HeavenzFire Desktop. It does not yet start a desktop window, scan the machine, clone repositories, execute tasks, or connect remote nodes automatically.
+This phase hardens the Phase-1 registry. It does not yet start a desktop window, scan the machine, clone repositories, execute tasks, or connect remote nodes automatically.
 
-## Source of truth
+## Local data directory
 
-The registry is stored as JSON at:
+- `HEAVENZFIRE_DATA_DIR` when set.
+- Otherwise `~/.heavenzfire`.
+- The future Electron main process must set this to its OS-managed application-data directory (on Windows, the app's LocalAppData location) before starting the gateway.
+- Registry files are outside the Git checkout. Registering a project records an explicitly supplied path; it does not scan, read, or modify repository source files.
 
-- `HEAVENZFIRE_DATA_DIR/control-plane-registry.json` when the environment variable is set.
-- Otherwise, `~/.heavenzfire/control-plane-registry.json`.
+Files:
 
-The desktop main process should set `HEAVENZFIRE_DATA_DIR` to its OS-managed application-data directory before starting the gateway service. The registry is not stored inside the Git checkout.
+| File | Role |
+| --- | --- |
+| `control-plane-registry.json` | Materialized project/node snapshot for fast reads |
+| `registry-ledger.jsonl` | Append-only, hash-chained registry commits; each commit contains the committed snapshot |
+| `task-evidence.jsonl` | Separate append-only task authorization/evidence records |
+| `registry.lock/` and `task-evidence.lock/` | Atomic directory locks with owner metadata |
 
-Writes are serialized within the process and committed using a temporary file plus atomic rename. The document includes a monotonically increasing revision and a bounded event history. The event history is operational audit metadata, not a cryptographic tamper-proof ledger.
+## Locking and crash recovery
 
-## Project registration
+Writers acquire an atomic directory lock, reload current disk state while holding it, append and fsync the JSONL commit, then write a unique temporary snapshot, fsync it, and atomically rename it into place. Independent registry instances therefore serialize through the same filesystem lock, not merely a per-process promise queue.
 
-A project record may link:
+A lock is reclaimed automatically only when its owner is on the same host and the recorded PID is provably absent. Unknown, malformed, remote-host, or permission-denied lock owners are not stolen; callers fail closed on lock timeout. A PID can theoretically be reused, so this conservative strategy may require manual lock inspection after unusual crashes.
 
-- A GitHub repository in `owner/repository` form.
-- An explicitly selected absolute local workspace path.
-- A default branch.
-- An owning registered node.
+If the process exits after the ledger commit but before snapshot replacement, the next read verifies the ledger and rebuilds the snapshot. A non-newline-terminated final JSONL fragment is treated as an incomplete append and truncated to the last complete record. A malformed or hash-invalid complete record is rejected rather than silently discarded.
 
-At least one of the GitHub repository or local workspace path is required. Duplicate repository links and duplicate local paths are rejected. Registration does not inspect or modify the referenced workspace.
+The first write creates an authenticated genesis record. Existing Phase-1 schema-version-1 snapshots are migrated on first access; their old bounded event history is retained as historical metadata but cannot be retroactively authenticated.
 
-## Node registration
+## Registry snapshot and project/node records
 
-Nodes have an explicit kind (`windows`, `android`, `linux`, or `macos`) and an allowlisted capability set:
+The materialized snapshot is schema version 2 and contains a monotonically increasing revision, projects, nodes, and recent event projections. The JSONL registry ledger is the authoritative source and is not bounded/truncated.
 
-- `health-report`
-- `project-files`
-- `git-read`
-- `git-write`
-- `local-inference`
-- `task-execution`
+Projects may link a GitHub repository, an explicitly selected absolute local path, a default branch, and an owning node. At least one of repository or local path is required. Duplicate repository and local path links are rejected.
 
-Capabilities are declarations only. This registry does not grant operating-system permissions or execute work. A later node agent must independently enforce each capability.
+Nodes declare a kind and allowlisted capabilities: `health-report`, `project-files`, `git-read`, `git-write`, `local-inference`, and `task-execution`. These are declarations, not grants of operating-system permissions. Node enrollment credentials, rotation, revocation, and network discovery remain separate work.
+
+## Task evidence ledger
+
+`TaskEvidenceLedger` stores each record separately from mutable registry state. Records include:
+
+- Authorizing identity kind and subject identifier.
+- Task ID and action.
+- SHA-256 hash of the task payload (payload contents are not copied into the audit log).
+- Optional assigned node ID.
+- Verification/result hash and outcome.
+- Sequence number, timestamp, previous-record hash, and record hash.
+
+Appending validates required fields, acquires its own cross-process lock, verifies the existing chain, appends one JSONL record, and fsyncs it. The ledger exposes a verification method and rejects modified committed records.
+
+**Security boundary:** an unkeyed SHA-256 chain detects accidental corruption and unsophisticated edits, but it is not a digital signature and cannot prevent an administrator with filesystem access from rewriting the entire log and recomputing the chain. Stronger provenance requires protected signing keys and/or an independently anchored checkpoint. Authorization identity fields are assertions supplied by the trusted caller; this phase does not yet authenticate individual users or node credentials.
 
 ## HTTP API
 
-The gateway exposes these routes:
-
 | Method | Route | Purpose |
 | --- | --- | --- |
-| GET | `/api/control-plane/registry` | Read the complete registry snapshot |
-| POST | `/api/control-plane/projects` | Register a project link |
-| POST | `/api/control-plane/nodes` | Register or refresh a node |
-| POST | `/api/control-plane/nodes/:nodeId/heartbeat` | Mark a registered node online |
-| PATCH | `/api/control-plane/nodes/:nodeId/status` | Set a node online/offline |
+| GET | `/api/control-plane/registry` | Read registry snapshot |
+| POST | `/api/control-plane/projects` | Register project link |
+| POST | `/api/control-plane/nodes` | Register or refresh node |
+| POST | `/api/control-plane/nodes/:nodeId/heartbeat` | Mark registered node online |
+| PATCH | `/api/control-plane/nodes/:nodeId/status` | Set node online/offline |
 
-Every route requires a bearer token in `HEAVENZFIRE_CONTROL_TOKEN` and a loopback TCP peer address. Missing credentials disable the API with HTTP 503. Invalid credentials return 401; non-loopback clients return 403. The desktop main process must keep the token private and mediate renderer requests through a restricted preload/IPC bridge; it must never expose the token to page JavaScript.
+Every route requires a bearer token in `HEAVENZFIRE_CONTROL_TOKEN` and a loopback TCP peer address. Missing credentials disable the API with HTTP 503. The desktop main process must keep the token private and mediate renderer requests through a restricted preload/IPC bridge; it must never expose the token to page JavaScript.
 
-Example request:
-
-```powershell
-$headers = @{ Authorization = "Bearer $env:HEAVENZFIRE_CONTROL_TOKEN" }
-Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:3000/api/control-plane/registry" -Headers $headers
-```
-
-## Verification
-
-Run:
+## Verification commands
 
 ```powershell
 npm run test:control-plane
@@ -68,16 +71,16 @@ npm run lint
 npm run build
 ```
 
-The focused tests cover persistence across process instances, project-link uniqueness, absolute-path validation, owner-node validation, capability allowlisting, heartbeat transitions, and event recording.
+The tests cover persistence, validation, independent-instance concurrent writes, snapshot reconstruction, incomplete trailing-write recovery, registry tamper detection, evidence append serialization, and evidence tamper detection.
 
-## Explicitly deferred
+## Explicitly not complete
 
 - Electron main/preload/renderer shell and Windows installer.
-- GitHub OAuth/device authorization and repository synchronization.
-- Windows directory picker and local workspace discovery.
-- Android/Termux authenticated node transport.
-- Node enrollment/rotation/revocation credentials.
-- Task ledger, task execution, and approval workflows.
-- Cryptographically chained or externally anchored audit evidence.
+- GitHub OAuth/device authorization and branch synchronization.
+- Windows workspace picker/discovery.
+- Authenticated Windows/Termux node transport and health telemetry.
+- Node enrollment, credential rotation, and revocation.
+- Task dispatch/execution, policy enforcement, and approval workflow.
+- Hardware-backed signing or external audit anchoring.
 
-These are separate implementation slices; none is represented as complete by this registry foundation.
+These are intentionally separate phases; this foundation does not claim they are implemented.
