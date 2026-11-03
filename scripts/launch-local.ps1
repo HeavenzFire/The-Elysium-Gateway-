@@ -40,8 +40,13 @@ if ($LASTEXITCODE -ne 0) { throw "TypeScript validation failed. Server was not l
 npm run build
 if ($LASTEXITCODE -ne 0) { throw "Production build failed. Server was not launched." }
 
-if (-not $env:GEMINI_API_KEY -and -not (Test-Path (Join-Path $repoRoot ".env"))) {
-    Write-Warning "GEMINI_API_KEY is not set and no .env file was found. The UI can start, but Gemini-backed endpoints will fail until configured."
+$envFile = Join-Path $repoRoot ".env"
+$envFileHasKey = $false
+if (Test-Path $envFile) {
+    $envFileHasKey = [bool](Get-Content $envFile | Where-Object { $_ -match '^\s*GEMINI_API_KEY\s*=\s*[^#\s]+' })
+}
+if (-not $env:GEMINI_API_KEY -and -not $envFileHasKey) {
+    Write-Warning "GEMINI_API_KEY is not configured. The UI can start, but Gemini-backed endpoints will fail until a key is supplied in .env or the process environment."
 }
 
 $env:NODE_ENV = "development"
