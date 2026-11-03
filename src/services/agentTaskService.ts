@@ -235,19 +235,12 @@ export class AgentTaskService {
           status: 'running',
           thoughts: `Initializing cognitive matrix for ${primaryEntity.name}. Decomposing objective into axiomatic sub-components...`,
           startedAt: new Date().toLocaleTimeString(),
-          toolCalls: [
-            {
-              toolName: 'first_principles_decomposer',
-              inputDescription: `Directive: "${params.directive.slice(0, 80)}..."`,
-              outputSummary: 'Derived 4 axiomatic sub-goals and identified governing theoretical equations.',
-              durationMs: 420
-            }
-          ]
+          toolCalls: []
         },
         {
           id: 'phase_2',
-          name: 'Deep Domain Execution & Tool Invocations',
-          description: `Execute computational simulations, derive mathematical equations, and construct architectural specifications.`,
+          name: 'Model Analysis',
+          description: `Generate a technical analysis. No external tools or code execution are available in this phase.`,
           status: 'pending',
           thoughts: 'Awaiting completion of strategy formulation...',
           toolCalls: []
@@ -337,14 +330,7 @@ export class AgentTaskService {
             startedAt: new Date().toLocaleTimeString(),
             completedAt: new Date().toLocaleTimeString(),
             thoughts: 'Synthesized final sovereign deliverable bundle.',
-            toolCalls: [
-              {
-                toolName: 'artifact_compiler',
-                inputDescription: 'Assembled full Markdown report, code/equations, and ASCII blueprint',
-                outputSummary: 'Deliverable ready for Seeker execution',
-                durationMs: 340
-              }
-            ],
+            toolCalls: [],
             output: 'Model-generated deliverable saved to local task history; no external execution was performed.'
           }
         ],
