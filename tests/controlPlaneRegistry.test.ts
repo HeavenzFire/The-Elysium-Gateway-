@@ -164,7 +164,7 @@ test("discards an incomplete final JSONL fragment after a crash", async () => {
     const recovered = await new ControlPlaneRegistry(directory).getSnapshot();
     assert.equal(recovered.nodes[0]?.id, "safe-tail");
     const raw = await readFile(registry.ledgerPath, "utf8");
-    assert.equal(raw.endsWith("\\n"), true);
+    assert.equal(raw.endsWith(String.fromCharCode(10)), true);
     assert.equal((await new ControlPlaneRegistry(directory).verifyLedger()).valid, true);
   });
 });
