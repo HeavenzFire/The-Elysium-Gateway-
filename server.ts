@@ -401,7 +401,7 @@ Deliver full technical rigor, genuine equations, working code, and an authentic 
 
       let parsed: any;
       try {
-        const clean = rawJson.replace(/^\x60\x60\x60json\\s*/i, "").replace(/^\x60\x60\x60\\s*/i, "").replace(/\x60\x60\x60$/i, "").trim();
+        const clean = rawJson.replace(/^\u0060\u0060\u0060json\s*/i, "").replace(/^\u0060\u0060\u0060\s*/i, "").replace(/\u0060\u0060\u0060$/i, "").trim();
         parsed = JSON.parse(clean);
       } catch (parseErr) {
         console.error("[AgentTask] Invalid JSON from model:", parseErr);
