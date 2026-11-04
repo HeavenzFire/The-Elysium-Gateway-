@@ -24,6 +24,7 @@ let cleanupComplete = false;
 const appRoot = path.resolve(__dirname, "..");
 const serverBundle = path.join(appRoot, "dist", "server.cjs");
 const isDevelopment = !app.isPackaged;
+const smokeTest = process.argv.includes("--smoke-test");
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -271,7 +272,7 @@ async function createWindow() {
     if (!gatewayOrigin || new URL(url).origin !== gatewayOrigin) event.preventDefault();
   });
 
-  mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.once("ready-to-show", () => { if (!smokeTest) mainWindow.show(); });
   mainWindow.on("close", (event) => {
     if (!quitting && tray) {
       event.preventDefault();
@@ -315,7 +316,16 @@ app.whenReady().then(async () => {
     createApplicationMenu();
     await createWindow();
     await createTray();
+    if (smokeTest) {
+      const [info, registry, integrity] = await mainWindow.webContents.executeJavaScript("Promise.all([window.heavenzfireDesktop.getDesktopInfo(), window.heavenzfireDesktop.getRegistry(), window.heavenzfireDesktop.verifyRegistry()])");
+      if (!info.nodeId || !registry.nodes.some((node) => node.id === info.nodeId) || !integrity.valid) {
+        throw new Error("DESKTOP_SMOKE_TEST_FAILED");
+      }
+      console.log("[Desktop] Smoke test passed: native window, preload bridge, local gateway, node enrollment, and registry verification.");
+      app.quit();
+    }
   } catch (error) {
+    process.exitCode = 1;
     dialog.showErrorBox("HeavenzFire Desktop could not start", error instanceof Error ? error.message : String(error));
     app.quit();
   }
