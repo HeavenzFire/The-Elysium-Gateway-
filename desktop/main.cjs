@@ -140,6 +140,20 @@ function registerControlPlaneIpc() {
     };
   });
 
+  ipcMain.handle("heavenzfire:workspace:select", async (event) => {
+    assertTrustedRenderer(event);
+    const result = await dialog.showOpenDialog(mainWindow, { properties: ["openDirectory"] });
+    return result.canceled ? null : result.filePaths[0] || null;
+  });
+
+  ipcMain.handle("heavenzfire:project:register", async (event, project) => {
+    assertTrustedRenderer(event);
+    return apiRequest("/api/control-plane/projects", {
+      method: "POST",
+      body: JSON.stringify(project),
+    });
+  });
+
   ipcMain.handle("heavenzfire:registry:get", async (event) => {
     assertTrustedRenderer(event);
     return apiRequest("/api/control-plane/registry");
