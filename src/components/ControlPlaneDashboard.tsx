@@ -4,7 +4,8 @@ import { Activity, AlertTriangle, CheckCircle2, Database, FolderOpen, PlusCircle
 type NodeRecord = {
   id: string; label: string; kind: string; status: "online" | "offline" | "unknown";
   capabilities: string[]; lastSeenAt: string;
-};
+  health?: { cpuCount: number; totalMemoryBytes: number; freeMemoryBytes: number; processMemoryBytes: number; reportedAt: string };
+}
 type ProjectRecord = {
   id: string; name: string; repositoryFullName?: string; defaultBranch?: string;
   localPath?: string; updatedAt: string;
@@ -20,7 +21,7 @@ type RegistrySnapshot = {
 };
 type VerifyResult = { valid: boolean; sequence?: number; count?: number; headHash: string };
 type DesktopBridge = {
-  getDesktopInfo(): Promise<{ name: string; version: string; gateway: string; dataDirectory: string }>;
+  getDesktopInfo(): Promise<{ name: string; version: string; gateway: string; nodeId: string; dataDirectory: string }>;
   getRegistry(): Promise<RegistrySnapshot>;
   verifyRegistry(): Promise<VerifyResult>;
   listEvidence(limit?: number): Promise<{ records: EvidenceRecord[] }>;
@@ -35,6 +36,15 @@ declare global {
 function shortHash(value?: string) {
   return value ? value.slice(0, 12) + "…" : "—";
 }
+function bytesLabel(value?: number) {
+  if (value === undefined) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let amount = value;
+  let unit = 0;
+  while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit += 1; }
+  return `${amount.toFixed(unit >= 2 ? 1 : 0)} ${units[unit]}`;
+}
+
 function timeLabel(value?: string) {
   if (!value) return "Never";
   const date = new Date(value);
@@ -169,6 +179,7 @@ export default function ControlPlaneDashboard() {
           <Integrity result={evidenceIntegrity} label="Evidence" />
         </div>
         <div className="text-[11px] text-white/35">Registry revision {snapshot?.revision ?? "—"} · {evidenceIntegrity?.count ?? 0} evidence records · app {desktop?.version || "—"}</div>
+        <div className="break-all text-[10px] text-white/35">Local node ID: {desktop?.nodeId || "—"}</div>
       </div>
 
       <div className="space-y-2">
@@ -192,6 +203,7 @@ export default function ControlPlaneDashboard() {
             <div className="mt-2 flex flex-wrap gap-1">
               {node.capabilities.map((capability) => <span key={capability} className="rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-white/50">{capability}</span>)}
             </div>
+            {node.health && <div className="mt-2 text-[10px] text-white/45">{node.health.cpuCount} CPUs · RAM {bytesLabel(node.health.freeMemoryBytes)} free / {bytesLabel(node.health.totalMemoryBytes)} · Process {bytesLabel(node.health.processMemoryBytes)}</div>}
             <div className="mt-2 text-[10px] text-white/35">Last heartbeat: {timeLabel(node.lastSeenAt)}</div>
           </div>
         ))}
