@@ -276,7 +276,7 @@ A concluding paragraph describing their lasting impact on civilization and moder
       res.status(502).json({
         error: "Biography generation failed. No verified biography was produced.",
         code: "BIOGRAPHY_PROVIDER_UNAVAILABLE"
-      });;
+      });
     }
   });
 
