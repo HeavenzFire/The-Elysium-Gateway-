@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, CircleDashed, Database, RefreshCw, ShieldCheck, Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Database, FolderOpen, PlusCircle, RefreshCw, ShieldCheck, Wifi, WifiOff } from "lucide-react";
 
 type NodeRecord = {
   id: string; label: string; kind: string; status: "online" | "offline" | "unknown";
@@ -25,6 +25,8 @@ type DesktopBridge = {
   verifyRegistry(): Promise<VerifyResult>;
   listEvidence(limit?: number): Promise<{ records: EvidenceRecord[] }>;
   verifyEvidence(): Promise<VerifyResult>;
+  selectWorkspace(): Promise<string | null>;
+  registerProject(project: { name: string; repositoryFullName?: string; defaultBranch?: string; localPath?: string }): Promise<ProjectRecord>;
 };
 declare global {
   interface Window { heavenzfireDesktop?: DesktopBridge; }
@@ -53,6 +55,11 @@ export default function ControlPlaneDashboard() {
   const [evidence, setEvidence] = useState<EvidenceRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState("");
+  const [repositoryFullName, setRepositoryFullName] = useState("");
+  const [defaultBranch, setDefaultBranch] = useState("main");
+  const [localPath, setLocalPath] = useState("");
+  const [savingProject, setSavingProject] = useState(false);
 
   const refresh = useCallback(async () => {
     const bridge = window.heavenzfireDesktop;
@@ -81,6 +88,35 @@ export default function ControlPlaneDashboard() {
       setBusy(false);
     }
   }, []);
+
+  const chooseWorkspace = async () => {
+    const bridge = window.heavenzfireDesktop;
+    if (!bridge) return;
+    try {
+      const selected = await bridge.selectWorkspace();
+      if (selected) setLocalPath(selected);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "WORKSPACE_PICKER_FAILED"); }
+  };
+
+  const registerProject = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const bridge = window.heavenzfireDesktop;
+    if (!bridge || savingProject) return;
+    if (!repositoryFullName.trim() && !localPath.trim()) { setError("Choose a local workspace or enter a GitHub repository before registering."); return; }
+    setSavingProject(true);
+    setError(null);
+    try {
+      await bridge.registerProject({
+        name: projectName.trim(),
+        ...(repositoryFullName.trim() ? { repositoryFullName: repositoryFullName.trim() } : {}),
+        ...(defaultBranch.trim() && repositoryFullName.trim() ? { defaultBranch: defaultBranch.trim() } : {}),
+        ...(localPath.trim() ? { localPath: localPath.trim() } : {}),
+      });
+      setProjectName(""); setRepositoryFullName(""); setDefaultBranch("main"); setLocalPath("");
+      await refresh();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "PROJECT_REGISTRATION_FAILED"); }
+    finally { setSavingProject(false); }
+  };
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -161,9 +197,34 @@ export default function ControlPlaneDashboard() {
         ))}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h5 className="text-sm font-semibold text-amber-100">Linked projects</h5>
+          <span className="text-[11px] text-white/35">{projects.length} total</span>
+        </div>
+        <form onSubmit={registerProject} className="space-y-2 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.035] p-3">
+          <div className="flex items-center gap-2 text-xs font-semibold text-cyan-100"><PlusCircle className="h-3.5 w-3.5" /> Register a project link</div>
+          <input value={projectName} onChange={(event) => setProjectName(event.target.value)} required maxLength={120} placeholder="Project name"
+            className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/50" />
+          <div className="grid grid-cols-[1fr_110px] gap-2">
+            <input value={repositoryFullName} onChange={(event) => setRepositoryFullName(event.target.value)} placeholder="GitHub owner/repository"
+              className="min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/50" />
+            <input value={defaultBranch} onChange={(event) => setDefaultBranch(event.target.value)} placeholder="Branch"
+              className="min-w-0 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/50" />
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => void chooseWorkspace()} className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-2 text-[11px] text-white/75 hover:bg-white/10">
+              <FolderOpen className="h-3.5 w-3.5" /> Choose local folder
+            </button>
+            <span className="min-w-0 truncate text-[10px] text-white/40">{localPath || "No local folder selected"}</span>
+          </div>
+          <button type="submit" disabled={savingProject || !projectName.trim() || (!repositoryFullName.trim() && !localPath.trim())}
+            className="w-full rounded-lg bg-cyan-500/15 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/25 disabled:opacity-35">
+            {savingProject ? "Registering…" : "Register project link"}
+          </button>
+          <p className="text-[9px] leading-relaxed text-white/35">Registration stores the selected path and repository reference only. It does not scan or modify workspace files.</p>
+        </form>
+        {projects.length === 0 ? (
           <span className="text-[11px] text-white/35">{projects.length} total</span>
         </div>
         {projects.length === 0 ? (
