@@ -128,11 +128,16 @@ export default function ControlPlaneDashboard() {
     finally { setSavingProject(false); }
   };
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+    const interval = setInterval(() => void refresh(), 30_000);
+    return () => clearInterval(interval);
+  }, [refresh]);
 
   const nodes = snapshot?.nodes || [];
   const projects = snapshot?.projects || [];
-  const onlineCount = nodes.filter((node) => node.status === "online").length;
+  const isNodeFresh = (node: NodeRecord) => node.status === "online" && Date.now() - new Date(node.lastSeenAt).getTime() < 90_000;
+  const onlineCount = nodes.filter(isNodeFresh).length;
 
   return (
     <section className="space-y-5 text-white">
@@ -196,8 +201,8 @@ export default function ControlPlaneDashboard() {
                 <div className="truncate text-sm font-medium">{node.label}</div>
                 <div className="mt-0.5 text-[10px] font-mono text-white/40">{node.kind} · {node.id}</div>
               </div>
-              <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] ${node.status === "online" ? "text-emerald-300" : "text-white/40"}`}>
-                {node.status === "online" ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}{node.status}
+              <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] ${isNodeFresh(node) ? "text-emerald-300" : node.status === "online" ? "text-amber-300" : "text-white/40"}`}>
+                {isNodeFresh(node) ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}{isNodeFresh(node) ? "online" : node.status === "online" ? "stale" : "offline"}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-1">
