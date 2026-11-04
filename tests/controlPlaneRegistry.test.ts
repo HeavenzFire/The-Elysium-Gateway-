@@ -183,6 +183,18 @@ test("recovers the materialized snapshot from the verified append-only ledger", 
   });
 });
 
+test("rebuilds a tampered materialized snapshot from the verified ledger", async () => {
+  await withRegistry(async (registry, directory) => {
+    await registry.registerNode({ id: "snapshot-integrity", label: "Trusted Label", kind: "windows" });
+    const snapshot = JSON.parse(await readFile(registry.filePath, "utf8"));
+    snapshot.state.nodes[0].label = "Tampered Label";
+    await writeFile(registry.filePath, JSON.stringify(snapshot));
+    const restored = await new ControlPlaneRegistry(directory).getSnapshot();
+    const repairedDisk = JSON.parse(await readFile(registry.filePath, "utf8"));
+    assert.equal(restored.nodes[0].label, "Trusted Label");
+    assert.equal(repairedDisk.state.nodes[0].label, "Trusted Label");
+  });
+});
 test("discards an incomplete final JSONL fragment after a crash", async () => {
   await withRegistry(async (registry, directory) => {
     await registry.registerNode({ id: "safe-tail", label: "Safe Tail", kind: "android" });
