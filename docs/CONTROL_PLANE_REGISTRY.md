@@ -5,7 +5,7 @@ This phase hardens the Phase-1 registry. It does not yet start a desktop window,
 ## Local data directory
 
 - `HEAVENZFIRE_DATA_DIR` when set.
-- Otherwise `~/.heavenzfire`.
+- Otherwise `%LOCALAPPDATA%/HeavenzFire` on Windows, or `~/.heavenzfire` on other platforms.
 - The future Electron main process must set this to its OS-managed application-data directory (on Windows, the app's LocalAppData location) before starting the gateway.
 - Registry files are outside the Git checkout. Registering a project records an explicitly supplied path; it does not scan, read, or modify repository source files.
 
