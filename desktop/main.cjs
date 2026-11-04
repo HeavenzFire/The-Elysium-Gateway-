@@ -207,6 +207,14 @@ async function createWindow() {
   await mainWindow.loadURL(gatewayOrigin);
 }
 
+function createApplicationMenu() {
+  const template = [
+    { label: "File", submenu: [{ label: "Hide Window", click: () => mainWindow?.hide() }, { type: "separator" }, { label: "Quit HeavenzFire", role: "quit" }] },
+    { label: "View", submenu: [{ label: "Reload", role: "reload" }, ...(isDevelopment ? [{ label: "Developer Tools", role: "toggleDevTools" }] : [])] },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 async function createTray() {
   try {
     const icon = await app.getFileIcon(process.execPath, { size: "small" });
@@ -227,6 +235,7 @@ app.whenReady().then(async () => {
   try {
     await startGateway();
     registerControlPlaneIpc();
+    createApplicationMenu();
     await createWindow();
     await createTray();
   } catch (error) {
