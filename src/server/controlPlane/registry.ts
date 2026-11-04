@@ -274,7 +274,7 @@ export class ControlPlaneRegistry {
     let snapshotMatches = false;
     try {
       const snapshot = JSON.parse(await readFile(this.filePath, "utf8")) as { sequence?: number; headHash?: string };
-      snapshotMatches = snapshot.sequence === ledger.sequence && snapshot.headHash === ledger.headHash;
+      snapshotMatches = snapshot.schemaVersion === 2 && snapshot.sequence === ledger.sequence && snapshot.headHash === ledger.headHash && JSON.stringify(snapshot.state) === JSON.stringify(ledger.state);
     } catch { /* regenerate from the verified ledger */ }
     if (!snapshotMatches && ledger.sequence > 0) {
       const repairRecord: LedgerRecord = {
