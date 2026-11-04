@@ -244,7 +244,12 @@ export class ControlPlaneRegistry {
         const now = new Date().toISOString();
         snapshot.revision += 1;
         snapshot.updatedAt = now;
-        if (mutation.event) snapshot.events.push(mutation.event);
+        if (mutation.event) {
+          snapshot.events.push(mutation.event);
+          // This array is a read-optimized projection only. The authoritative,
+          // append-only history remains in registry-ledger.jsonl.
+          if (snapshot.events.length > 10_000) snapshot.events.splice(0, snapshot.events.length - 10_000);
+        }
         const record = await this.appendCommit(snapshot, current.sequence, current.headHash);
         await this.atomicWriteSnapshot(record);
         resolveResult(mutation.value);
