@@ -27,6 +27,8 @@ The preload exposes only the following narrow methods as `window.heavenzfireDesk
 
 - `getDesktopInfo()`
 - `getRegistry()`
+- `selectWorkspace()` — opens a native directory picker
+- `registerProject(input)` — stores a user-confirmed project link only
 - `verifyRegistry()`
 - `listEvidence(limit)`
 - `verifyEvidence()`
@@ -36,4 +38,4 @@ No Node integration, arbitrary IPC channel, filesystem access, or shell executio
 
 ## Current scope
 
-This is the native application host and restricted control-plane bridge. The existing React screens have not yet been redesigned into a dedicated registry dashboard. GitHub OAuth, Termux enrollment, signed node identities, task dispatch, installer packaging, and auto-update are separate stages.
+This is the native application host and restricted control-plane bridge. The existing React screens remain the primary application surface; the Codex drawer now includes a registry dashboard with project registration through a native folder picker. GitHub OAuth, Termux enrollment, signed node identities, task dispatch, installer packaging, and auto-update are separate stages.
