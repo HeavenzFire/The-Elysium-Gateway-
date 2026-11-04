@@ -1,6 +1,8 @@
 const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, shell, session } = require("electron");
 const { spawn } = require("node:child_process");
 const path = require("node:path");
+const fs = require("node:fs/promises");
+const os = require("node:os");
 const crypto = require("node:crypto");
 
 app.setName("HeavenzFire Desktop");
@@ -14,7 +16,10 @@ let tray;
 let gatewayProcess;
 let gatewayOrigin;
 let controlToken;
+let localNodeId;
+let heartbeatTimer;
 let quitting = false;
+let cleanupComplete = false;
 
 const appRoot = path.resolve(__dirname, "..");
 const serverBundle = path.join(appRoot, "dist", "server.cjs");
@@ -129,6 +134,55 @@ async function startGateway() {
   throw new Error("GATEWAY_HEALTH_CHECK_FAILED");
 }
 
+function collectLocalHealth() {
+  return {
+    cpuCount: os.cpus().length,
+    totalMemoryBytes: os.totalmem(),
+    freeMemoryBytes: os.freemem(),
+    processMemoryBytes: process.memoryUsage().rss,
+  };
+}
+
+async function getLocalNodeId() {
+  const idPath = path.join(app.getPath("userData"), "desktop-node-id");
+  await fs.mkdir(app.getPath("userData"), { recursive: true });
+  try {
+    const existing = (await fs.readFile(idPath, "utf8")).trim();
+    if (/^[0-9a-f-]{36}$/i.test(existing)) return existing;
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  const generated = crypto.randomUUID();
+  try {
+    await fs.writeFile(idPath, generated, { flag: "wx", mode: 0o600 });
+    return generated;
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    return (await fs.readFile(idPath, "utf8")).trim();
+  }
+}
+
+async function registerLocalNode() {
+  localNodeId = await getLocalNodeId();
+  const kind = process.platform === "win32" ? "windows" : process.platform === "darwin" ? "macos" : "linux";
+  const node = {
+    id: localNodeId,
+    label: os.hostname(),
+    kind,
+    capabilities: ["health-report"],
+    platform: `${os.type()} ${os.release()} ${os.arch()}`,
+    appVersion: app.getVersion(),
+    health: collectLocalHealth(),
+  };
+  await apiRequest("/api/control-plane/nodes", { method: "POST", body: JSON.stringify(node) });
+  heartbeatTimer = setInterval(() => {
+    apiRequest(`/api/control-plane/nodes/${encodeURIComponent(localNodeId)}/heartbeat`, {
+      method: "POST",
+      body: JSON.stringify({ health: collectLocalHealth() }),
+    }).catch((error) => console.error('[Desktop] Node heartbeat failed:', error.message));
+  }, 30_000);
+}
+
 function registerControlPlaneIpc() {
   ipcMain.handle("heavenzfire:desktop-info", (event) => {
     assertTrustedRenderer(event);
@@ -136,6 +190,7 @@ function registerControlPlaneIpc() {
       name: "HeavenzFire Desktop",
       version: app.getVersion(),
       gateway: "online",
+      nodeId: localNodeId,
       dataDirectory: app.getPath("userData"),
     };
   });
@@ -255,6 +310,7 @@ async function createTray() {
 app.whenReady().then(async () => {
   try {
     await startGateway();
+    await registerLocalNode();
     registerControlPlaneIpc();
     createApplicationMenu();
     await createWindow();
@@ -269,9 +325,23 @@ app.on("activate", () => {
   if (mainWindow) mainWindow.show();
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if (cleanupComplete) return;
+  event.preventDefault();
+  if (quitting) return;
   quitting = true;
-  if (gatewayProcess && !gatewayProcess.killed) gatewayProcess.kill();
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  void (async () => {
+    if (localNodeId && gatewayOrigin) {
+      await apiRequest(`/api/control-plane/nodes/${encodeURIComponent(localNodeId)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "offline" }),
+      }).catch(() => undefined);
+    }
+    if (gatewayProcess && !gatewayProcess.killed) gatewayProcess.kill();
+    cleanupComplete = true;
+    app.quit();
+  })();
 });
 
 app.on("window-all-closed", () => {
