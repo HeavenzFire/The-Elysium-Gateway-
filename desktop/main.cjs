@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, Menu, Tray, dialog, ipcMain, shell, session } = require("electron");
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -171,6 +171,13 @@ function registerControlPlaneIpc() {
 }
 
 async function createWindow() {
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    let sameOrigin = false;
+    try { sameOrigin = new URL(details.requestingUrl || webContents.getURL()).origin === gatewayOrigin; }
+    catch { sameOrigin = false; }
+    callback(Boolean(mainWindow && webContents === mainWindow.webContents && sameOrigin && permission === "media"));
+  });
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
