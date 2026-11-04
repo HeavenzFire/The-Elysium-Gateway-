@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
+    "desktop:dev": "npm run build && npx --yes electron@45.2.2 desktop/main.cjs",
+    "desktop:check": "node --check desktop/main.cjs && node --check desktop/preload.cjs",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
