@@ -10,6 +10,9 @@ const dataRoot = process.platform === "win32"
   ? path.join(process.env.LOCALAPPDATA || app.getPath("appData"), "HeavenzFire")
   : path.join(app.getPath("appData"), "HeavenzFire");
 app.setPath("userData", dataRoot);
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+else app.on("second-instance", () => mainWindow?.show());
 
 let mainWindow;
 let tray;
@@ -147,20 +150,13 @@ function collectLocalHealth() {
 async function getLocalNodeId() {
   const idPath = path.join(app.getPath("userData"), "desktop-node-id");
   await fs.mkdir(app.getPath("userData"), { recursive: true });
-  try {
-    const existing = (await fs.readFile(idPath, "utf8")).trim();
-    if (/^[0-9a-f-]{36}$/i.test(existing)) return existing;
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-  }
+  let existing = "";
+  try { existing = (await fs.readFile(idPath, "utf8")).trim(); }
+  catch (error) { if (error.code !== "ENOENT") throw error; }
+  if (/^[0-9a-f-]{36}$/i.test(existing)) return existing;
   const generated = crypto.randomUUID();
-  try {
-    await fs.writeFile(idPath, generated, { flag: "wx", mode: 0o600 });
-    return generated;
-  } catch (error) {
-    if (error.code !== "EEXIST") throw error;
-    return (await fs.readFile(idPath, "utf8")).trim();
-  }
+  await fs.writeFile(idPath, generated, { mode: 0o600 });
+  return generated;
 }
 
 async function registerLocalNode() {
@@ -309,6 +305,7 @@ async function createTray() {
 }
 
 app.whenReady().then(async () => {
+  if (!hasSingleInstanceLock) return;
   try {
     await startGateway();
     await registerLocalNode();
