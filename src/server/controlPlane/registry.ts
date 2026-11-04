@@ -92,7 +92,10 @@ export class ControlPlaneRegistry {
   readonly ledgerPath: string;
   readonly lockPath: string;
 
-  constructor(dataDirectory = process.env.HEAVENZFIRE_DATA_DIR || path.join(homedir(), ".heavenzfire")) {
+  constructor(dataDirectory = process.env.HEAVENZFIRE_DATA_DIR ||
+    (process.platform === "win32" && process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, "HeavenzFire")
+      : path.join(homedir(), ".heavenzfire"))) {
     this.filePath = path.join(dataDirectory, "control-plane-registry.json");
     this.ledgerPath = path.join(dataDirectory, "registry-ledger.jsonl");
     this.lockPath = path.join(dataDirectory, "registry.lock");
