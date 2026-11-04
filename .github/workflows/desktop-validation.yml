@@ -18,6 +18,8 @@ permissions:
 jobs:
   windows-desktop:
     runs-on: windows-latest
+    env:
+      GEMINI_API_KEY: CI_SMOKE_TEST_PLACEHOLDER
     timeout-minutes: 25
     steps:
       - name: Checkout
