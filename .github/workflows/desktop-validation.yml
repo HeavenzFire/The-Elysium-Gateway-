@@ -1,0 +1,39 @@
+name: HeavenzFire Desktop Validation
+
+on:
+  pull_request:
+    paths:
+      - "desktop/**"
+      - "src/App.tsx"
+      - "src/components/ControlPlaneDashboard.tsx"
+      - "server.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/desktop-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check Electron host syntax
+        run: npm run desktop:check
+      - name: TypeScript validation
+        run: npm run lint
+      - name: Build gateway UI and server
+        run: npm run build
+      - name: Verify pinned Electron runtime
+        run: npx --yes electron@45.2.2 --version
