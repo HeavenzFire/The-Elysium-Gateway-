@@ -144,6 +144,12 @@ export class TaskEvidenceLedger {
     });
   }
 
+
+  async list(limit = 100): Promise<TaskEvidenceRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1_000) throw new Error("INVALID_EVIDENCE_LIMIT");
+    return this.withLock(async () => (await this.readVerified()).slice(-limit));
+  }
+
   async verify(): Promise<{ valid: true; count: number; headHash: string }> {
     return this.withLock(async () => {
       const records = await this.readVerified();
