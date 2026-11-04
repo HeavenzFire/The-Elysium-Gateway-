@@ -131,6 +131,19 @@ test("writes a valid versioned materialized snapshot", async () => {
 });
 
 
+test("migrates a Phase-1 snapshot into the authenticated schema-v2 ledger", async () => {
+  await withRegistry(async (_registry, directory) => {
+    const legacy = {
+      schemaVersion: 1, revision: 4, updatedAt: new Date(0).toISOString(),
+      projects: [], nodes: [], events: [],
+    };
+    await writeFile(path.join(directory, "control-plane-registry.json"), JSON.stringify(legacy));
+    const migrated = await new ControlPlaneRegistry(directory).getSnapshot();
+    assert.equal(migrated.schemaVersion, 2);
+    assert.equal(migrated.revision, 4);
+    assert.equal((await new ControlPlaneRegistry(directory).verifyLedger()).sequence, 1);
+  });
+});
 test("serializes writes across independent registry instances", async () => {
   await withRegistry(async (_registry, directory) => {
     const registries = Array.from({ length: 8 }, () => new ControlPlaneRegistry(directory));
