@@ -6,10 +6,12 @@ import { WebSocketServer, WebSocket } from "ws";
 import { GoogleGenAI, Modality, LiveServerMessage } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { getCuratedFallbackBiography } from "./src/services/entityBiographyFallback";
+import { registerControlPlaneRoutes } from "./src/server/controlPlane/routes";
 
 async function startServer() {
   const app = express();
   app.use(express.json());
+  registerControlPlaneRoutes(app);
 
   const server = http.createServer(app);
 
