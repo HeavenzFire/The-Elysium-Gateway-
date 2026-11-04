@@ -15,6 +15,7 @@ Files:
 | --- | --- |
 | `control-plane-registry.json` | Materialized project/node snapshot for fast reads |
 | `registry-ledger.jsonl` | Append-only, hash-chained registry commits; each commit contains the committed snapshot |
+| `node-runtime.json` | Atomic operational overlay for heartbeat status and resource telemetry; not an audit ledger |
 | `task-evidence.jsonl` | Separate append-only task authorization/evidence records |
 | `registry.lock/` and `task-evidence.lock/` | Atomic directory locks with owner metadata |
 
@@ -24,7 +25,7 @@ Writers acquire an atomic directory lock, reload current disk state while holdin
 
 A lock is reclaimed automatically only when its owner is on the same host and the recorded PID is provably absent. Unknown, malformed, remote-host, or permission-denied lock owners are not stolen; callers fail closed on lock timeout. A PID can theoretically be reused, so this conservative strategy may require manual lock inspection after unusual crashes.
 
-If the process exits after the ledger commit but before snapshot replacement, the next read verifies the ledger and rebuilds the snapshot. A non-newline-terminated final JSONL fragment is treated as an incomplete append and truncated to the last complete record. A malformed or hash-invalid complete record is rejected rather than silently discarded.
+If the process exits after the ledger commit but before snapshot replacement, the next read verifies the ledger and rebuilds the snapshot. A non-newline-terminated final JSONL fragment is treated as an incomplete append and truncated to the last complete record. A malformed or hash-invalid complete record is rejected rather than silently discarded. Node heartbeats update `node-runtime.json` atomically under the same registry lock instead of appending a full registry snapshot every 30 seconds. Runtime telemetry is intentionally ephemeral and does not increment the durable registry revision or masquerade as audit evidence.
 
 The first write creates an authenticated genesis record. Existing Phase-1 schema-version-1 snapshots are migrated on first access; their old bounded event history is retained as historical metadata but cannot be retroactively authenticated.
 
