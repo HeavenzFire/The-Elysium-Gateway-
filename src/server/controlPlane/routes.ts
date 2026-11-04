@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
+import path from "node:path";
 import type { Express, NextFunction, Request, Response } from "express";
 import { getControlPlaneRegistry } from "./registry";
+import { TaskEvidenceLedger, type TaskEvidenceInput } from "./evidenceLedger";
 
 function isLoopback(address = ""): boolean {
   return address === "::1" ||
@@ -47,7 +49,33 @@ function sendRegistryError(res: Response, error: unknown): void {
 
 export function registerControlPlaneRoutes(app: Express): void {
   const registry = getControlPlaneRegistry();
+  const evidence = new TaskEvidenceLedger(path.dirname(registry.filePath));
   app.use("/api/control-plane", controlPlaneAuth);
+
+  app.get("/api/control-plane/registry/verify", async (_req, res) => {
+    try { res.json(await registry.verifyLedger()); }
+    catch (error) { sendRegistryError(res, error); }
+  });
+
+  app.get("/api/control-plane/evidence", async (req, res) => {
+    try {
+      const rawLimit = req.query.limit;
+      const limit = rawLimit === undefined ? 100 : Number(rawLimit);
+      res.json({ records: await evidence.list(limit) });
+    } catch (error) { sendRegistryError(res, error); }
+  });
+
+  app.get("/api/control-plane/evidence/verify", async (_req, res) => {
+    try { res.json(await evidence.verify()); }
+    catch (error) { sendRegistryError(res, error); }
+  });
+
+  app.post("/api/control-plane/evidence", async (req, res) => {
+    try {
+      const record = await evidence.append((req.body || {}) as TaskEvidenceInput);
+      res.status(201).json(record);
+    } catch (error) { sendRegistryError(res, error); }
+  });
 
   app.get("/api/control-plane/registry", async (_req, res) => {
     try {
