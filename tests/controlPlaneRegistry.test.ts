@@ -112,14 +112,24 @@ test("heartbeat updates node status and records an auditable event", async () =>
     const offline = await registry.getSnapshot();
     assert.equal(offline.nodes[0].status, "offline");
 
-    const heartbeat = await registry.heartbeatNode(node.id);
+    const heartbeat = await registry.heartbeatNode(node.id, {
+      cpuCount: 8, totalMemoryBytes: 8_000_000_000, freeMemoryBytes: 2_000_000_000, processMemoryBytes: 120_000_000,
+    });
     const snapshot = await registry.getSnapshot();
     assert.equal(heartbeat.status, "online");
     assert.equal(snapshot.nodes[0].status, "online");
+    assert.equal(snapshot.nodes[0].health?.cpuCount, 8);
+    assert.equal(snapshot.nodes[0].health?.freeMemoryBytes, 2_000_000_000);
     assert.equal(snapshot.events.at(-1)?.type, "node.heartbeat");
   });
 });
 
+test("rejects malformed node health telemetry", async () => {
+  await withRegistry(async (registry) => {
+    const node = await registry.registerNode({ id: "health-node", label: "Health Node", kind: "windows" });
+    await assert.rejects(registry.heartbeatNode(node.id, { cpuCount: 0, totalMemoryBytes: 10, freeMemoryBytes: 11, processMemoryBytes: -1 }), /INVALID_NODE_HEALTH/);
+  });
+});
 test("writes a valid versioned materialized snapshot", async () => {
   await withRegistry(async (registry) => {
     await registry.registerNode({ id: "node-a", label: "Node A", kind: "linux" });
