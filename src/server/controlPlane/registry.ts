@@ -11,9 +11,12 @@ export interface RegisteredProject {
   id: string; name: string; repositoryFullName?: string; defaultBranch?: string;
   localPath?: string; ownerNodeId?: string; createdAt: string; updatedAt: string;
 }
+export interface NodeHealth {
+  cpuCount: number; totalMemoryBytes: number; freeMemoryBytes: number; processMemoryBytes: number; reportedAt: string;
+}
 export interface RegisteredNode {
   id: string; label: string; kind: NodeKind; status: NodeStatus; capabilities: NodeCapability[];
-  platform?: string; appVersion?: string; lastSeenAt: string; createdAt: string; updatedAt: string;
+  platform?: string; appVersion?: string; health?: NodeHealth; lastSeenAt: string; createdAt: string; updatedAt: string;
 }
 export interface RegistryEvent {
   id: string; type: "project.registered" | "node.registered" | "node.heartbeat" | "node.status";
@@ -28,6 +31,7 @@ export interface RegisterProjectInput {
 }
 export interface RegisterNodeInput {
   id?: string; label: string; kind: NodeKind; capabilities?: NodeCapability[]; platform?: string; appVersion?: string;
+  health?: { cpuCount: number; totalMemoryBytes: number; freeMemoryBytes: number; processMemoryBytes: number };
 }
 interface LedgerRecord {
   schemaVersion: 1; sequence: number; previousHash: string; committedAt: string;
@@ -61,6 +65,22 @@ function normalizeRepository(value: unknown): string | undefined {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(raw)) throw new Error("INVALID_REPOSITORY_FULL_NAME");
   return raw;
 }
+function normalizeHealth(value: unknown): NodeHealth | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) throw new Error("INVALID_NODE_HEALTH");
+  const input = value as Record<string, unknown>;
+  const integer = (field: string, min: number, max: number) => {
+    const candidate = input[field];
+    if (typeof candidate !== "number" || !Number.isSafeInteger(candidate) || candidate < min || candidate > max) throw new Error("INVALID_NODE_HEALTH");
+    return candidate;
+  };
+  const cpuCount = integer("cpuCount", 1, 512);
+  const totalMemoryBytes = integer("totalMemoryBytes", 1, Number.MAX_SAFE_INTEGER);
+  const freeMemoryBytes = integer("freeMemoryBytes", 0, totalMemoryBytes);
+  const processMemoryBytes = integer("processMemoryBytes", 0, Number.MAX_SAFE_INTEGER);
+  return { cpuCount, totalMemoryBytes, freeMemoryBytes, processMemoryBytes, reportedAt: new Date().toISOString() };
+}
+
 function normalizeCapabilities(value: unknown): NodeCapability[] {
   if (value === undefined) return ["health-report"];
   if (!Array.isArray(value) || value.length > ALLOWED_CAPABILITIES.size) throw new Error("INVALID_NODE_CAPABILITIES");
@@ -307,11 +327,12 @@ export class ControlPlaneRegistry {
     const capabilities = normalizeCapabilities(input.capabilities);
     const platform = optionalText(input.platform, "platform", 120);
     const appVersion = optionalText(input.appVersion, "app_version", 80);
+    const health = normalizeHealth(input.health);
     return this.mutate((snapshot) => {
       const now = new Date().toISOString();
       const existing = snapshot.nodes.find((node) => node.id === id);
       const node: RegisteredNode = { id, label, kind: input.kind, status: "online", capabilities,
-        ...(platform ? { platform } : {}), ...(appVersion ? { appVersion } : {}),
+        ...(platform ? { platform } : {}), ...(appVersion ? { appVersion } : {}), ...(health ? { health } : {}),
         lastSeenAt: now, createdAt: existing?.createdAt || now, updatedAt: now };
       if (existing) snapshot.nodes[snapshot.nodes.indexOf(existing)] = node; else snapshot.nodes.push(node);
       return { value: node, event: { id: randomUUID(), type: "node.registered", subjectId: id,
@@ -319,12 +340,14 @@ export class ControlPlaneRegistry {
     });
   }
 
-  async heartbeatNode(nodeId: string): Promise<RegisteredNode> {
+  async heartbeatNode(nodeId: string, healthInput?: unknown): Promise<RegisteredNode> {
     const id = requiredText(nodeId, "node_id", 80);
+    const health = normalizeHealth(healthInput);
     return this.mutate((snapshot) => {
       const node = snapshot.nodes.find((item) => item.id === id);
       if (!node) throw new Error("UNKNOWN_NODE");
       const now = new Date().toISOString(); node.status = "online"; node.lastSeenAt = now; node.updatedAt = now;
+      if (health) node.health = health;
       return { value: node, event: { id: randomUUID(), type: "node.heartbeat", subjectId: id, occurredAt: now, actor: "node" } };
     });
   }
