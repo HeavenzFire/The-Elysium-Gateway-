@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Database, FolderOpen, PlusCircle, RefreshCw, ShieldCheck, Wifi, WifiOff } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Database, FolderOpen, PlusCircle, RefreshCw, ShieldCheck, Wifi, WifiOff } from "lucide-react";
 
 type NodeRecord = {
   id: string; label: string; kind: string; status: "online" | "offline" | "unknown";
