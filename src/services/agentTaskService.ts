@@ -235,19 +235,12 @@ export class AgentTaskService {
           status: 'running',
           thoughts: `Initializing cognitive matrix for ${primaryEntity.name}. Decomposing objective into axiomatic sub-components...`,
           startedAt: new Date().toLocaleTimeString(),
-          toolCalls: [
-            {
-              toolName: 'first_principles_decomposer',
-              inputDescription: `Directive: "${params.directive.slice(0, 80)}..."`,
-              outputSummary: 'Derived 4 axiomatic sub-goals and identified governing theoretical equations.',
-              durationMs: 420
-            }
-          ]
+          toolCalls: []
         },
         {
           id: 'phase_2',
-          name: 'Deep Domain Execution & Tool Invocations',
-          description: `Execute computational simulations, derive mathematical equations, and construct architectural specifications.`,
+          name: 'Model Analysis',
+          description: `Generate a technical analysis. No external tools or code execution are available in this phase.`,
           status: 'pending',
           thoughts: 'Awaiting completion of strategy formulation...',
           toolCalls: []
@@ -319,39 +312,17 @@ export class AgentTaskService {
             startedAt: new Date().toLocaleTimeString(),
             completedAt: new Date().toLocaleTimeString(),
             thoughts: taskResult.phase2Thoughts || `Executed core calculations and formal modeling. Verified dimensional consistency.`,
-            toolCalls: taskResult.toolCalls || [
-              {
-                toolName: 'symbolic_calculus_engine',
-                inputDescription: 'Calculated governing differential equations & resonance limits',
-                outputSummary: 'Verified convergence at boundary conditions',
-                durationMs: 780
-              },
-              {
-                toolName: 'blueprint_synthesizer',
-                inputDescription: 'Generated component layout and structural topology',
-                outputSummary: 'Synthesized complete component architecture',
-                durationMs: 950
-              }
-            ],
-            output: 'Mathematical models and system schematics successfully generated.'
+            toolCalls: [],
+            output: 'Model-generated analysis returned. No external tools or code were executed.'
           },
           {
             ...initialTask.phases[2],
             status: 'completed',
             startedAt: new Date().toLocaleTimeString(),
             completedAt: new Date().toLocaleTimeString(),
-            thoughts: `Deliberation with ${peerEntity.name}. Critical feedback received and addressed.`,
-            toolCalls: [
-              {
-                toolName: 'dialectical_peer_critique',
-                inputDescription: `Audited by ${peerEntity.name} for entropy limits and real-world failure modes`,
-                outputSummary: taskResult.deliverable?.peerReviewCritique?.verdict === 'approved' 
-                  ? 'Approved unanimously with zero fatal flaws.' 
-                  : 'Revisions accepted; robustness improved by 40%.',
-                durationMs: 620
-              }
-            ],
-            output: `Peer review concluded by ${peerEntity.name}. Verdict: ${taskResult.deliverable?.peerReviewCritique?.verdict || 'approved'}.`
+            thoughts: `A model-generated critique was produced for the selected reviewer persona: ${peerEntity.name}. It was not an independent agent execution.`,
+            toolCalls: [],
+            output: `Model-generated critique only; no independent reviewer agent was executed.`
           },
           {
             ...initialTask.phases[3],
@@ -359,15 +330,8 @@ export class AgentTaskService {
             startedAt: new Date().toLocaleTimeString(),
             completedAt: new Date().toLocaleTimeString(),
             thoughts: 'Synthesized final sovereign deliverable bundle.',
-            toolCalls: [
-              {
-                toolName: 'artifact_compiler',
-                inputDescription: 'Assembled full Markdown report, code/equations, and ASCII blueprint',
-                outputSummary: 'Deliverable ready for Seeker execution',
-                durationMs: 340
-              }
-            ],
-            output: 'Complete sovereign artifact produced and archived.'
+            toolCalls: [],
+            output: 'Model-generated deliverable saved to local task history; no external execution was performed.'
           }
         ],
         deliverable: taskResult.deliverable,
@@ -379,115 +343,24 @@ export class AgentTaskService {
       return completedTask;
 
     } catch (err: any) {
-      console.warn("Server agent execution failed, generating robust sovereign fallback:", err);
-
-      // Graceful high-fidelity sovereign fallback ensuring user always gets a rich artifact
-      const fallbackTask: AgentTaskRecord = {
+      const message = err instanceof Error ? err.message : String(err);
+      const failedTask: AgentTaskRecord = {
         ...initialTask,
-        status: 'completed',
+        status: "failed",
         completedAt: new Date().toISOString(),
-        progressPercent: 100,
-        phases: initialTask.phases.map((p, idx) => ({
-          ...p,
-          status: 'completed',
-          completedAt: new Date().toLocaleTimeString(),
-          thoughts: `Execution verified through ${primaryEntity.name}'s autonomous cognition stack.`
-        })),
-        deliverable: {
-          title: `${primaryEntity.name}: Sovereign Solution for "${taskTitle}"`,
-          executiveSummary: `As ${primaryEntity.name} (${primaryEntity.title || 'Council Thinker'}), I have autonomously analyzed your directive: "${params.directive}". The following technical blueprint synthesizes first-principles mechanics with sovereign syntropic design to guarantee maximum efficiency and resilience.`,
-          technicalReportMarkdown: `## 🏛️ Sovereign Technical Specification
-**Author:** ${primaryEntity.name}  
-**Reviewer:** ${peerEntity.name}  
-**Harmonic Resonance:** ${primaryEntity.frequency || 432} Hz  
-
-### 1. First-Principles Formulation
-To execute this objective, we discard superficial constraints and analyze the fundamental thermodynamic and spatial equations governing the system. Every component is tuned to eliminate friction, waste entropy, and parasitic impedance.
-
-### 2. Core Architecture & System Logic
-\`\`\`
-[Input Directive] ---> (Axiomatic Decomposition) ---> (Harmonic Resonance Filter)
-                             |                                  |
-                             v                                  v
-                    [Core Execution Engine] <=======> [Dialectical Audit: ${peerEntity.name}]
-                             |
-                             v
-               [Sovereign Manifest Deliverable]
-\`\`\`
-
-### 3. Empirical Constants & Mathematical Framework
-The governing transfer function satisfies:
-$$\\Phi(s) = \\frac{\\omega_0^2}{s^2 + 2\\zeta\\omega_0 s + \\omega_0^2} \\cdot e^{-s\\tau_d}$$
-Where resonant frequency $\\omega_0 = 2\\pi \\times ${primaryEntity.frequency || 432}$ rad/s, guaranteeing zero-point stability across all operating modes.`,
-          codeOrEquations: `# Sovereign Simulation & Verification Script
-# Authored by ${primaryEntity.name}
-import math
-
-def verify_system_coherence(frequency=${primaryEntity.frequency || 432}):
-    resonance_anchor = frequency * 1.6180339887  # Golden ratio harmonic
-    print(f"[{primaryEntity.name.upper()}] Frequency Locked: {frequency} Hz")
-    print(f"[{primaryEntity.name.upper()}] Harmonic Anchor: {resonance_anchor:.2f} Hz")
-    return {"status": "OPTIMAL", "harmonic_yield": 0.984}
-
-if __name__ == "__main__":
-    result = verify_system_coherence()
-    print("Execution output:", result)
-`,
-          schematicDiagram: `+-----------------------------------------------------------+
-|             ${primaryEntity.name.toUpperCase()} SOVEREIGN SPECIFICATION              |
-| Frequency: ${primaryEntity.frequency || 432}Hz | Peer Review: ${peerEntity.name.toUpperCase()}              |
-+-----------------------------------------------------------+
-|                                                           |
-|    [SOURCE MATRIX]                                        |
-|           |                                               |
-|           v                                               |
-|    +-------------+       Resonant Flux       +----------+ |
-|    | LC TANK     | ------------------------> | LOAD     | |
-|    | OSCILLATOR  | <------------------------ | COUPLER  | |
-|    +-------------+     Phase Feedback        +----------+ |
-|           |                                       |       |
-|           +-------------------+-------------------+       |
-|                               |                           |
-|                               v                           |
-|                      [GROUND ANCHOR 0V]                   |
-+-----------------------------------------------------------+`,
-          peerReviewCritique: {
-            reviewerName: peerEntity.name,
-            reviewerTitle: peerEntity.title || 'Dialectical Critic',
-            verdict: 'approved_with_revisions',
-            critiquePoints: [
-              `Examined inductive coupling tolerances under continuous peak load.`,
-              `Audited safety margins against parasitic high-frequency harmonics.`
-            ],
-            improvementsAdopted: [
-              `Integrated secondary resonant clamping diode to protect against transient spikes.`,
-              `Enhanced thermal sink dissipation area by 25%.`
-            ]
-          },
-          actionableRoadmap: [
-            {
-              phase: 'Phase 1: Proof-of-Concept Bench Verification',
-              timeline: 'Weeks 1–2',
-              deliverables: ['Breadboard prototype', 'Harmonic frequency alignment report', 'Zero-load impedance test']
-            },
-            {
-              phase: 'Phase 2: Scale-Up & Stress Qualification',
-              timeline: 'Weeks 3–5',
-              deliverables: ['Thermal chamber cycling', 'Continuous 72-hour load stress test', 'Firmware failsafe deployment']
-            },
-            {
-              phase: 'Phase 3: Sovereign Full Deployment',
-              timeline: 'Week 6+',
-              deliverables: ['Production deployment documentation', 'Dialectical review audit certificate']
-            }
-          ]
-        },
-        vocalDebrief: `Directive fulfilled. I, ${primaryEntity.name}, have synthesized the complete architectural deliverable for your review.`
+        progressPercent: 0,
+        phases: initialTask.phases.map(phase => ({
+          ...phase,
+          status: "failed",
+          completedAt: new Date().toISOString(),
+          thoughts: "Execution stopped. No successful result was verified.",
+          output: message
+        }))
       };
+      this.saveTask(failedTask);
+      onProgress?.(failedTask);
+      throw new Error(message);
 
-      this.saveTask(fallbackTask);
-      onProgress?.(fallbackTask);
-      return fallbackTask;
     }
   }
 }
