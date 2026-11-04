@@ -124,6 +124,9 @@ test("heartbeat updates ephemeral health without extending the durable registry 
     assert.equal(snapshot.nodes[0].health?.freeMemoryBytes, 2_000_000_000);
     assert.equal(afterHeartbeat.sequence, beforeHeartbeat.sequence);
     assert.equal(JSON.parse(await readFile(registry.runtimePath, "utf8")).nodes[node.id].health.cpuCount, 8);
+    await registry.setNodeStatus(node.id, "offline");
+    assert.equal((await registry.getSnapshot()).nodes[0].status, "offline");
+    assert.equal(JSON.parse(await readFile(registry.runtimePath, "utf8")).nodes[node.id], undefined);
   });
 });
 
