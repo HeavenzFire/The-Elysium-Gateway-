@@ -188,7 +188,7 @@ export class ControlPlaneRegistry {
   private async atomicWriteRuntime(runtime: NodeRuntimeState): Promise<void> {
     const temporary = `${this.runtimePath}.${randomUUID()}.tmp`;
     const handle = await open(temporary, "wx", 0o600);
-    try { await handle.writeFile(JSON.stringify(runtime, null, 2) + "\\n", "utf8"); await handle.sync(); }
+    try { await handle.writeFile(JSON.stringify(runtime, null, 2) + "\n", "utf8"); await handle.sync(); }
     finally { await handle.close(); }
     await rename(temporary, this.runtimePath);
   }
