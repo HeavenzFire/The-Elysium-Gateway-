@@ -37,3 +37,5 @@ jobs:
         run: npm run build
       - name: Verify pinned Electron runtime
         run: npx --yes electron@45.2.2 --version
+      - name: Smoke-test native desktop startup and preload bridge
+        run: npm run desktop:smoke
