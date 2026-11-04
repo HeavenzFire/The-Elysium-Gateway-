@@ -68,6 +68,7 @@ import { RealityDistortionGauge } from './components/RealityDistortionGauge';
 import { MicrodimensionalUniverseModal } from './components/MicrodimensionalUniverseModal';
 import { HyperSpatial8DPortal } from './components/HyperSpatial8DPortal';
 import { AgenticTaskConsole } from './components/AgenticTaskConsole';
+import ControlPlaneDashboard from './components/ControlPlaneDashboard';
 
 // Entity Roster Definitions
 const ROOM_1_DESIGN_ENTITIES: EntityId[] = [
@@ -155,7 +156,7 @@ export default function App() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Tools & Codex Drawer State
-  const [codexTab, setCodexTab] = useState<'tuner' | 'archive' | 'library' | 'vision' | 'dilemmas' | '8d' | 'tasks' | null>(null);
+  const [codexTab, setCodexTab] = useState<'tuner' | 'archive' | 'library' | 'vision' | 'dilemmas' | '8d' | 'tasks' | 'control-plane' | null>(null);
   const [is8DPortalOpen, setIs8DPortalOpen] = useState(false);
   const [isAgentConsoleOpen, setIsAgentConsoleOpen] = useState(false);
   const [agentInitialDirective, setAgentInitialDirective] = useState<string>('');
@@ -1335,6 +1336,17 @@ export default function App() {
                 </button>
 
                 <button
+                  onClick={() => setCodexTab('control-plane')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 flex items-center gap-1.5",
+                    codexTab === "control-plane" ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/40" : "text-white/60 hover:text-white"
+                  )}
+                >
+                  <Database className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Control Plane</span>
+                </button>
+
+                <button
                   onClick={() => setCodexTab('tasks')}
                   className={cn(
                     "px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 flex items-center gap-1.5",
@@ -1687,6 +1699,8 @@ export default function App() {
                 )}
 
                 {/* TAB 7: AUTONOMOUS AGENT SANCTUM */}
+                {codexTab === 'control-plane' && <ControlPlaneDashboard />}
+
                 {codexTab === 'tasks' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">

@@ -105,7 +105,7 @@ export function registerControlPlaneRoutes(app: Express): void {
 
   app.post("/api/control-plane/nodes/:nodeId/heartbeat", async (req, res) => {
     try {
-      res.json(await registry.heartbeatNode(req.params.nodeId));
+      res.json(await registry.heartbeatNode(req.params.nodeId, req.body?.health));
     } catch (error) {
       sendRegistryError(res, error);
     }

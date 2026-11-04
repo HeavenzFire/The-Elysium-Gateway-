@@ -100,7 +100,7 @@ test("rejects unapproved capabilities and unknown node ownership", async () => {
   });
 });
 
-test("heartbeat updates node status and records an auditable event", async () => {
+test("heartbeat updates ephemeral health without extending the durable registry ledger", async () => {
   await withRegistry(async (registry) => {
     const node = await registry.registerNode({
       id: "android-a67l",
@@ -112,14 +112,30 @@ test("heartbeat updates node status and records an auditable event", async () =>
     const offline = await registry.getSnapshot();
     assert.equal(offline.nodes[0].status, "offline");
 
-    const heartbeat = await registry.heartbeatNode(node.id);
+    const beforeHeartbeat = await registry.verifyLedger();
+    const heartbeat = await registry.heartbeatNode(node.id, {
+      cpuCount: 8, totalMemoryBytes: 8_000_000_000, freeMemoryBytes: 2_000_000_000, processMemoryBytes: 120_000_000,
+    });
     const snapshot = await registry.getSnapshot();
+    const afterHeartbeat = await registry.verifyLedger();
     assert.equal(heartbeat.status, "online");
     assert.equal(snapshot.nodes[0].status, "online");
-    assert.equal(snapshot.events.at(-1)?.type, "node.heartbeat");
+    assert.equal(snapshot.nodes[0].health?.cpuCount, 8);
+    assert.equal(snapshot.nodes[0].health?.freeMemoryBytes, 2_000_000_000);
+    assert.equal(afterHeartbeat.sequence, beforeHeartbeat.sequence);
+    assert.equal(JSON.parse(await readFile(registry.runtimePath, "utf8")).nodes[node.id].health.cpuCount, 8);
+    await registry.setNodeStatus(node.id, "offline");
+    assert.equal((await registry.getSnapshot()).nodes[0].status, "offline");
+    assert.equal(JSON.parse(await readFile(registry.runtimePath, "utf8")).nodes[node.id], undefined);
   });
 });
 
+test("rejects malformed node health telemetry", async () => {
+  await withRegistry(async (registry) => {
+    const node = await registry.registerNode({ id: "health-node", label: "Health Node", kind: "windows" });
+    await assert.rejects(registry.heartbeatNode(node.id, { cpuCount: 0, totalMemoryBytes: 10, freeMemoryBytes: 11, processMemoryBytes: -1 }), /INVALID_NODE_HEALTH/);
+  });
+});
 test("writes a valid versioned materialized snapshot", async () => {
   await withRegistry(async (registry) => {
     await registry.registerNode({ id: "node-a", label: "Node A", kind: "linux" });
@@ -170,6 +186,18 @@ test("recovers the materialized snapshot from the verified append-only ledger", 
   });
 });
 
+test("rebuilds a tampered materialized snapshot from the verified ledger", async () => {
+  await withRegistry(async (registry, directory) => {
+    await registry.registerNode({ id: "snapshot-integrity", label: "Trusted Label", kind: "windows" });
+    const snapshot = JSON.parse(await readFile(registry.filePath, "utf8"));
+    snapshot.state.nodes[0].label = "Tampered Label";
+    await writeFile(registry.filePath, JSON.stringify(snapshot));
+    const restored = await new ControlPlaneRegistry(directory).getSnapshot();
+    const repairedDisk = JSON.parse(await readFile(registry.filePath, "utf8"));
+    assert.equal(restored.nodes[0].label, "Trusted Label");
+    assert.equal(repairedDisk.state.nodes[0].label, "Trusted Label");
+  });
+});
 test("discards an incomplete final JSONL fragment after a crash", async () => {
   await withRegistry(async (registry, directory) => {
     await registry.registerNode({ id: "safe-tail", label: "Safe Tail", kind: "android" });
