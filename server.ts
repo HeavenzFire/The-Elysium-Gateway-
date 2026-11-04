@@ -11,6 +11,9 @@ import { registerControlPlaneRoutes } from "./src/server/controlPlane/routes";
 async function startServer() {
   const app = express();
   app.use(express.json());
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", service: "elysium-gateway" });
+  });
   registerControlPlaneRoutes(app);
 
   const server = http.createServer(app);
@@ -759,10 +762,13 @@ Deliver full technical rigor, genuine equations, working code, and an authentic 
     });
   }
 
-  const PORT = process.env.NODE_ENV === "production" ? (Number(process.env.PORT) || 3000) : 3000;
+  const PORT = process.env.PORT === undefined ? 3000 : Number(process.env.PORT);
   const HOST = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
+  if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) throw new Error("INVALID_SERVER_PORT");
   server.listen(PORT, HOST, () => {
-    console.log(`[Server] Live on http://${HOST}:${PORT}`);
+    const address = server.address();
+    const boundPort = typeof address === "object" && address ? address.port : PORT;
+    console.log(`[Server] Live on http://${HOST}:${boundPort}`);
   });
 }
 
