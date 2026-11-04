@@ -9,7 +9,13 @@ import { getCuratedFallbackBiography } from "./src/services/entityBiographyFallb
 
 async function startServer() {
   const app = express();
-  app.use(express.json());
+  app.disable("x-powered-by");
+  app.use(express.json({ limit: "128kb" }));
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    next();
+  });
 
   const server = http.createServer(app);
 
@@ -152,13 +158,19 @@ async function startServer() {
       }
 
       if (!text) {
-        text = "The council frequency is established. The sacred geometry holds firm across the threshold. Proceed with your inquiry, Seeker.";
+        return res.status(502).json({
+          error: "The model provider returned no content. No response was generated.",
+          code: "MODEL_EMPTY_RESPONSE"
+        });
       }
 
-      res.json({ text });
+      return res.json({ text });
     } catch (err: any) {
       console.error("Server-side content generation failed:", err);
-      res.status(200).json({ text: "The celestial signal resonates through the gateway. Inquire further, Seeker." });
+      res.status(502).json({
+        error: "The model provider request failed. No response was generated.",
+        code: "MODEL_PROVIDER_UNAVAILABLE"
+      });
     }
   });
 
@@ -237,18 +249,16 @@ A concluding paragraph describing their lasting impact on civilization and moder
           });
           candidate = plainResult.candidates?.[0];
           text = plainResult.text || candidate?.content?.parts?.map((p: any) => p.text).filter(Boolean).join("\n") || "";
-          sources = [
-            { title: `${entityName} - Historical Reference & Archives`, uri: `https://en.wikipedia.org/wiki/${encodeURIComponent(entityName.replace(/ /g, '_'))}` }
-          ];
-          isGrounded = true;
+          // Direct synthesis is not search-grounded; do not invent a source citation.
+          sources = [];
+          isGrounded = false;
         }
       } catch (geminiError: any) {
         console.warn(`[EntityBio] Gemini call encountered rate-limit/quota error (${geminiError.status || geminiError.message}). Serving resilient curated archival fallback for ${entityName}.`);
         text = getCuratedFallbackBiography(entityId, entityName, title, subTitle);
-        sources = [
-          { title: `${entityName} - Classical & Historical Archival Reference`, uri: `https://en.wikipedia.org/wiki/${encodeURIComponent(entityName.replace(/ /g, '_'))}` }
-        ];
-        isGrounded = true;
+        // Curated local fallback is useful but is not live-search evidence.
+        sources = [];
+        isGrounded = false;
       }
 
       res.json({
@@ -263,14 +273,10 @@ A concluding paragraph describing their lasting impact on civilization and moder
       });
     } catch (err: any) {
       console.error("Server-side entity biography handler unexpected failure:", err);
-      res.status(200).json({
-        entityId: req.body?.entityId,
-        entityName: req.body?.entityName || "Historical Sovereign",
-        biographyMarkdown: `### 🏛️ Historical Dossier\n**Archival Record for ${req.body?.entityName || 'Entity'}**\n\nHistorically documented figure within the Council.`,
-        sources: [],
-        grounded: false,
-        isFallback: true
-      });
+      res.status(502).json({
+        error: "Biography generation failed. No verified biography was produced.",
+        code: "BIOGRAPHY_PROVIDER_UNAVAILABLE"
+      });;
     }
   });
 
@@ -299,7 +305,7 @@ A concluding paragraph describing their lasting impact on civilization and moder
         return res.status(413).json({ error: "Directive exceeds the 12,000 character limit" });
       }
 
-      console.log(`[AgentTask] Dispatching mission to ${assignedEntityName} (${assignedEntityId}): "${directive.slice(0, 80)}..." Peer: ${peerReviewerName}`);
+      console.log("[AgentTask] Starting bounded model-analysis request.");
 
       const agentSystemInstruction = `You are an Autonomous Sovereign Agent representing ${assignedEntityName} (${assignedEntityTitle || 'Master Thinker'}), working in collaboration with peer reviewer ${peerReviewerName} (${peerReviewerTitle || 'Dialectical Critic'}) within the Elysium Gateway Council.
 
@@ -757,8 +763,14 @@ Deliver full technical rigor, genuine equations, working code, and an authentic 
     });
   }
 
-  const PORT = process.env.NODE_ENV === "production" ? (Number(process.env.PORT) || 3000) : 3000;
-  const HOST = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
+  const PORT = Number(process.env.PORT || 3000);
+  const HOST = process.env.HOST || "127.0.0.1";
+  if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+    throw new Error("PORT must be an integer from 1 to 65535.");
+  }
+  if (!["127.0.0.1", "::1"].includes(HOST)) {
+    throw new Error("Elysium Gateway v0.1 is loopback-only. Use an authenticated SSH tunnel for remote access.");
+  }
   server.listen(PORT, HOST, () => {
     console.log(`[Server] Live on http://${HOST}:${PORT}`);
   });
