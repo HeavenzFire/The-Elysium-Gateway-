@@ -34,7 +34,7 @@ The materialized snapshot is schema version 2 and contains a monotonically incre
 
 Projects may link a GitHub repository, an explicitly selected absolute local path, a default branch, and an owning node. At least one of repository or local path is required. Duplicate repository and local path links are rejected.
 
-Nodes declare a kind and allowlisted capabilities: `health-report`, `project-files`, `git-read`, `git-write`, `local-inference`, and `task-execution`. These are declarations, not grants of operating-system permissions. Node enrollment credentials, rotation, revocation, and network discovery remain separate work.
+Nodes declare a kind and allowlisted capabilities: `health-report`, `project-files`, `git-read`, `git-write`, `local-inference`, and `task-execution`. These are declarations, not grants of operating-system permissions. Node enrollment credentials, rotation, revocation, and network discovery remain separate work. Optional health telemetry includes CPU count, total/free physical memory, process RSS, and server-stamped report time. Values are range-checked; a heartbeat without telemetry preserves the previous health sample.
 
 ## Task evidence ledger
 
@@ -62,7 +62,7 @@ Appending validates required fields, acquires its own cross-process lock, verifi
 | POST | `/api/control-plane/evidence` | Append task authorization/evidence record |
 | POST | `/api/control-plane/projects` | Register project link |
 | POST | `/api/control-plane/nodes` | Register or refresh node |
-| POST | `/api/control-plane/nodes/:nodeId/heartbeat` | Mark registered node online |
+| POST | `/api/control-plane/nodes/:nodeId/heartbeat` | Mark registered node online and optionally update validated health telemetry |
 | PATCH | `/api/control-plane/nodes/:nodeId/status` | Set node online/offline |
 
 Every route requires a bearer token in `HEAVENZFIRE_CONTROL_TOKEN` and a loopback TCP peer address. Missing credentials disable the API with HTTP 503. The desktop main process must keep the token private and mediate renderer requests through a restricted preload/IPC bridge; it must never expose the token to page JavaScript.
