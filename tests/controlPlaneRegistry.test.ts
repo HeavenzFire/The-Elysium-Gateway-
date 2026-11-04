@@ -120,13 +120,13 @@ test("heartbeat updates node status and records an auditable event", async () =>
   });
 });
 
-test("writes valid JSON and bounds retained event history", async () => {
+test("writes a valid versioned materialized snapshot", async () => {
   await withRegistry(async (registry) => {
     await registry.registerNode({ id: "node-a", label: "Node A", kind: "linux" });
     const raw = await readFile(registry.filePath, "utf8");
     const parsed = JSON.parse(raw);
     assert.equal(parsed.schemaVersion, 2);
-    assert.equal(parsed.revision, 1);
+    assert.equal(parsed.state.revision, 1);
   });
 });
 
