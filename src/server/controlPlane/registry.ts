@@ -37,6 +37,10 @@ interface LedgerRecord {
   schemaVersion: 1; sequence: number; previousHash: string; committedAt: string;
   state: RegistrySnapshot; hash: string;
 }
+interface NodeRuntimeEntry {
+  status: Exclude<NodeStatus, "unknown">; lastSeenAt: string; updatedAt: string; health?: NodeHealth;
+}
+interface NodeRuntimeState { schemaVersion: 1; nodes: Record<string, NodeRuntimeEntry>; }
 const GENESIS = "0".repeat(64);
 const ALLOWED_CAPABILITIES = new Set<NodeCapability>(["local-inference", "project-files", "git-read", "git-write", "task-execution", "health-report"]);
 const NODE_KINDS = new Set<NodeKind>(["windows", "android", "linux", "macos"]);
@@ -111,6 +115,7 @@ export class ControlPlaneRegistry {
   readonly filePath: string;
   readonly ledgerPath: string;
   readonly lockPath: string;
+  readonly runtimePath: string;
 
   constructor(dataDirectory = process.env.HEAVENZFIRE_DATA_DIR ||
     (process.platform === "win32" && process.env.LOCALAPPDATA
@@ -119,6 +124,7 @@ export class ControlPlaneRegistry {
     this.filePath = path.join(dataDirectory, "control-plane-registry.json");
     this.ledgerPath = path.join(dataDirectory, "registry-ledger.jsonl");
     this.lockPath = path.join(dataDirectory, "registry.lock");
+    this.runtimePath = path.join(dataDirectory, "node-runtime.json");
   }
 
   private async acquireLock(): Promise<() => Promise<void>> {
@@ -166,6 +172,38 @@ export class ControlPlaneRegistry {
     // Directory fsync is supported on POSIX; Windows may reject opening a directory.
     try { const directory = await open(path.dirname(this.filePath), "r"); try { await directory.sync(); } finally { await directory.close(); } }
     catch { /* atomic rename remains the platform-level commit boundary on Windows */ }
+  }
+
+  private async readRuntime(): Promise<NodeRuntimeState> {
+    try {
+      const parsed = JSON.parse(await readFile(this.runtimePath, "utf8")) as NodeRuntimeState;
+      if (parsed.schemaVersion !== 1 || !parsed.nodes || typeof parsed.nodes !== "object" || Array.isArray(parsed.nodes)) throw new Error("NODE_RUNTIME_SCHEMA_INVALID");
+      return parsed;
+    } catch (error) {
+      if (isMissing(error)) return { schemaVersion: 1, nodes: {} };
+      throw error;
+    }
+  }
+
+  private async atomicWriteRuntime(runtime: NodeRuntimeState): Promise<void> {
+    const temporary = `${this.runtimePath}.${randomUUID()}.tmp`;
+    const handle = await open(temporary, "wx", 0o600);
+    try { await handle.writeFile(JSON.stringify(runtime, null, 2) + "\\n", "utf8"); await handle.sync(); }
+    finally { await handle.close(); }
+    await rename(temporary, this.runtimePath);
+  }
+
+  private mergeRuntime(state: RegistrySnapshot, runtime: NodeRuntimeState): RegistrySnapshot {
+    const merged = clone(state);
+    for (const node of merged.nodes) {
+      const current = runtime.nodes[node.id];
+      if (!current) continue;
+      node.status = current.status;
+      node.lastSeenAt = current.lastSeenAt;
+      node.updatedAt = current.updatedAt;
+      if (current.health) node.health = current.health;
+    }
+    return merged;
   }
 
   private async readLedger(): Promise<{ state: RegistrySnapshot; sequence: number; headHash: string }> {
@@ -253,7 +291,7 @@ export class ControlPlaneRegistry {
     return ledger;
   }
 
-  private async mutate<T>(operation: (snapshot: RegistrySnapshot) => { value: T; event?: RegistryEvent }): Promise<T> {
+  private async mutate<T>(operation: (snapshot: RegistrySnapshot) => { value: T; event?: RegistryEvent; clearRuntimeNodeId?: string }): Promise<T> {
     let resolveResult!: (value: T) => void;
     let rejectResult!: (reason: unknown) => void;
     const result = new Promise<T>((resolve, reject) => { resolveResult = resolve; rejectResult = reject; });
@@ -273,6 +311,11 @@ export class ControlPlaneRegistry {
           // append-only history remains in registry-ledger.jsonl.
           if (snapshot.events.length > 10_000) snapshot.events.splice(0, snapshot.events.length - 10_000);
         }
+        if (mutation.clearRuntimeNodeId) {
+          const runtime = await this.readRuntime();
+          delete runtime.nodes[mutation.clearRuntimeNodeId];
+          await this.atomicWriteRuntime(runtime);
+        }
         const record = await this.appendCommit(snapshot, current.sequence, current.headHash);
         await this.atomicWriteSnapshot(record);
         resolveResult(mutation.value);
@@ -285,8 +328,10 @@ export class ControlPlaneRegistry {
   async getSnapshot(): Promise<RegistrySnapshot> {
     await this.writeQueue;
     const release = await this.acquireLock();
-    try { return clone((await this.loadAndRepair()).state); }
-    finally { await release(); }
+    try {
+      const ledger = await this.loadAndRepair();
+      return this.mergeRuntime(ledger.state, await this.readRuntime());
+    } finally { await release(); }
   }
 
   async verifyLedger(): Promise<{ valid: boolean; sequence: number; headHash: string }> {
@@ -335,7 +380,7 @@ export class ControlPlaneRegistry {
         ...(platform ? { platform } : {}), ...(appVersion ? { appVersion } : {}), ...(health ? { health } : {}),
         lastSeenAt: now, createdAt: existing?.createdAt || now, updatedAt: now };
       if (existing) snapshot.nodes[snapshot.nodes.indexOf(existing)] = node; else snapshot.nodes.push(node);
-      return { value: node, event: { id: randomUUID(), type: "node.registered", subjectId: id,
+      return { value: node, clearRuntimeNodeId: id, event: { id: randomUUID(), type: "node.registered", subjectId: id,
         occurredAt: now, actor: "node", detail: { label, kind: input.kind, capabilities: capabilities.join(",") } } };
     });
   }
@@ -343,13 +388,21 @@ export class ControlPlaneRegistry {
   async heartbeatNode(nodeId: string, healthInput?: unknown): Promise<RegisteredNode> {
     const id = requiredText(nodeId, "node_id", 80);
     const health = normalizeHealth(healthInput);
-    return this.mutate((snapshot) => {
-      const node = snapshot.nodes.find((item) => item.id === id);
+    const release = await this.acquireLock();
+    try {
+      const ledger = await this.loadAndRepair();
+      const node = ledger.state.nodes.find((item) => item.id === id);
       if (!node) throw new Error("UNKNOWN_NODE");
-      const now = new Date().toISOString(); node.status = "online"; node.lastSeenAt = now; node.updatedAt = now;
-      if (health) node.health = health;
-      return { value: node, event: { id: randomUUID(), type: "node.heartbeat", subjectId: id, occurredAt: now, actor: "node" } };
-    });
+      const now = new Date().toISOString();
+      const runtime = await this.readRuntime();
+      const prior = runtime.nodes[id];
+      runtime.nodes[id] = {
+        status: "online", lastSeenAt: now, updatedAt: now,
+        ...(health ? { health } : prior?.health ? { health: prior.health } : {}),
+      };
+      await this.atomicWriteRuntime(runtime);
+      return { ...node, ...runtime.nodes[id] };
+    } finally { await release(); }
   }
 
   async setNodeStatus(nodeId: string, status: Exclude<NodeStatus, "unknown">): Promise<RegisteredNode> {
@@ -358,7 +411,7 @@ export class ControlPlaneRegistry {
       const node = snapshot.nodes.find((item) => item.id === id);
       if (!node) throw new Error("UNKNOWN_NODE");
       const now = new Date().toISOString(); node.status = status; node.updatedAt = now;
-      return { value: node, event: { id: randomUUID(), type: "node.status", subjectId: id, occurredAt: now, actor: "local-user", detail: { status } } };
+      return { value: node, clearRuntimeNodeId: id, event: { id: randomUUID(), type: "node.status", subjectId: id, occurredAt: now, actor: "local-user", detail: { status } } };
     });
   }
 }
