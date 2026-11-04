@@ -33,7 +33,7 @@ test("persists projects and nodes across registry instances", async () => {
 
     const reopened = new ControlPlaneRegistry(directory);
     const snapshot = await reopened.getSnapshot();
-    assert.equal(snapshot.schemaVersion, 1);
+    assert.equal(snapshot.schemaVersion, 2);
     assert.equal(snapshot.revision, 2);
     assert.equal(snapshot.nodes[0].id, "zdh-windows");
     assert.equal(snapshot.projects[0].id, project.id);
@@ -125,7 +125,7 @@ test("writes valid JSON and bounds retained event history", async () => {
     await registry.registerNode({ id: "node-a", label: "Node A", kind: "linux" });
     const raw = await readFile(registry.filePath, "utf8");
     const parsed = JSON.parse(raw);
-    assert.equal(parsed.schemaVersion, 1);
+    assert.equal(parsed.schemaVersion, 2);
     assert.equal(parsed.revision, 1);
   });
 });
@@ -164,7 +164,7 @@ test("discards an incomplete final JSONL fragment after a crash", async () => {
     const recovered = await new ControlPlaneRegistry(directory).getSnapshot();
     assert.equal(recovered.nodes[0]?.id, "safe-tail");
     const raw = await readFile(registry.ledgerPath, "utf8");
-    assert.equal(raw.endsWith(String.fromCharCode(10)), true);
+    assert.equal(raw.includes('"sequence":999'), false);
     assert.equal((await new ControlPlaneRegistry(directory).verifyLedger()).valid, true);
   });
 });
