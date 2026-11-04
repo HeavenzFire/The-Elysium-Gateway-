@@ -15,6 +15,15 @@ From the repository root:
 ```powershell
 npm ci
 npm run desktop:dev
+
+For a headless integration check after building:
+
+```powershell
+npm run build
+npm run desktop:smoke
+```
+
+The smoke test starts the Electron host and local gateway, verifies the preload bridge, confirms local node enrollment, checks registry integrity, then shuts down cleanly.
 ```
 
 The script builds the existing React/Express application, launches a native Electron window, and starts the gateway as a private child process. The gateway binds only to `127.0.0.1` on an OS-assigned ephemeral port. Its control-plane token is generated at startup and remains in the Electron main process; it is not exposed to renderer JavaScript.
