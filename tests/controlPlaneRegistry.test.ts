@@ -100,7 +100,7 @@ test("rejects unapproved capabilities and unknown node ownership", async () => {
   });
 });
 
-test("heartbeat updates node status and records an auditable event", async () => {
+test("heartbeat updates ephemeral health without extending the durable registry ledger", async () => {
   await withRegistry(async (registry) => {
     const node = await registry.registerNode({
       id: "android-a67l",
@@ -112,15 +112,18 @@ test("heartbeat updates node status and records an auditable event", async () =>
     const offline = await registry.getSnapshot();
     assert.equal(offline.nodes[0].status, "offline");
 
+    const beforeHeartbeat = await registry.verifyLedger();
     const heartbeat = await registry.heartbeatNode(node.id, {
       cpuCount: 8, totalMemoryBytes: 8_000_000_000, freeMemoryBytes: 2_000_000_000, processMemoryBytes: 120_000_000,
     });
     const snapshot = await registry.getSnapshot();
+    const afterHeartbeat = await registry.verifyLedger();
     assert.equal(heartbeat.status, "online");
     assert.equal(snapshot.nodes[0].status, "online");
     assert.equal(snapshot.nodes[0].health?.cpuCount, 8);
     assert.equal(snapshot.nodes[0].health?.freeMemoryBytes, 2_000_000_000);
-    assert.equal(snapshot.events.at(-1)?.type, "node.heartbeat");
+    assert.equal(afterHeartbeat.sequence, beforeHeartbeat.sequence);
+    assert.equal(JSON.parse(await readFile(registry.runtimePath, "utf8")).nodes[node.id].health.cpuCount, 8);
   });
 });
 
