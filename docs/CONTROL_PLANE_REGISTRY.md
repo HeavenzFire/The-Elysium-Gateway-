@@ -56,6 +56,10 @@ Appending validates required fields, acquires its own cross-process lock, verifi
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET | `/api/control-plane/registry` | Read registry snapshot |
+| GET | `/api/control-plane/registry/verify` | Verify registry commit chain |
+| GET | `/api/control-plane/evidence?limit=100` | Read latest verified evidence records (limit 1–1,000) |
+| GET | `/api/control-plane/evidence/verify` | Verify task evidence chain |
+| POST | `/api/control-plane/evidence` | Append task authorization/evidence record |
 | POST | `/api/control-plane/projects` | Register project link |
 | POST | `/api/control-plane/nodes` | Register or refresh node |
 | POST | `/api/control-plane/nodes/:nodeId/heartbeat` | Mark registered node online |
