@@ -45,6 +45,22 @@ test("serializes concurrent evidence appends", async () => {
   });
 });
 
+test("lists recent verified evidence records with a bounded limit", async () => {
+  await withLedger(async (ledger) => {
+    for (let index = 0; index < 3; index += 1) {
+      await ledger.append({
+        authorization: { kind: "service", subjectId: "orchestrator" },
+        taskId: "list-" + index,
+        action: "record",
+        payloadHash: hash("payload-" + index),
+        verificationHash: hash("proof-" + index),
+        outcome: "accepted",
+      });
+    }
+    assert.deepEqual((await ledger.list(2)).map((record) => record.taskId), ["list-1", "list-2"]);
+    await assert.rejects(ledger.list(1_001), /INVALID_EVIDENCE_LIMIT/);
+  });
+});
 test("detects modifications to committed evidence", async () => {
   await withLedger(async (ledger, directory) => {
     await ledger.append({
