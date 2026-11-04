@@ -225,10 +225,7 @@ export default function ControlPlaneDashboard() {
           <p className="text-[9px] leading-relaxed text-white/35">Registration stores the selected path and repository reference only. It does not scan or modify workspace files.</p>
         </form>
         {projects.length === 0 ? (
-          <span className="text-[11px] text-white/35">{projects.length} total</span>
-        </div>
-        {projects.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/15 p-4 text-xs text-white/40">No projects registered. Repository and local-path linking are not automatic; this view is read-only.</div>
+          <div className="rounded-xl border border-dashed border-white/15 p-4 text-xs text-white/40">No projects registered yet.</div>
         ) : projects.map((project) => (
           <div key={project.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
             <div className="text-sm font-medium">{project.name}</div>
