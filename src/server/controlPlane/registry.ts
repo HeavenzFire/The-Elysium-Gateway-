@@ -153,7 +153,7 @@ export class ControlPlaneRegistry {
       // One-time migration from the Phase-1 snapshot. The old bounded event list is
       // retained as historical metadata, but cannot be retroactively authenticated.
       try {
-        const legacy = JSON.parse(await readFile(this.filePath, "utf8")) as RegistrySnapshot;
+        const legacy = JSON.parse(await readFile(this.filePath, "utf8")) as { schemaVersion: number; revision: number; updatedAt: string; projects: RegisteredProject[]; nodes: RegisteredNode[]; events?: RegistryEvent[] };
         if (legacy.schemaVersion !== 1 || !Array.isArray(legacy.projects) || !Array.isArray(legacy.nodes)) throw new Error("REGISTRY_SCHEMA_INVALID");
         const migrated: RegistrySnapshot = { ...legacy, schemaVersion: 2, events: Array.isArray(legacy.events) ? legacy.events : [] };
         return { state: migrated, sequence: 0, headHash: GENESIS };
